@@ -1,3 +1,7 @@
+"""
+unit tests for factor extraction module
+"""
+
 import pytest
 import numpy as np
 

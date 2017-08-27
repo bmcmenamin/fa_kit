@@ -1,3 +1,7 @@
+"""
+Unit tests for FactorAnalysis class
+"""
+
 import pytest
 import numpy as np
 

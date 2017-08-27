@@ -1,3 +1,7 @@
+"""
+Unit tests for BrokenStick class
+"""
+
 import pytest
 import numpy as np
 
