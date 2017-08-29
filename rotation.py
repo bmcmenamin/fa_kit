@@ -10,7 +10,7 @@ class Rotator(object):
     Base class for rotation objects
     """
 
-    ITER_MAX = 500
+    ITER_MAX = 100
 
     def __init__(self):
 
@@ -58,71 +58,53 @@ class OrthoRotator(Rotator):
 
 
     def rotate(self, comps_in):
+
         """
         Apply iterative orthogonal rotation
+        based on: https://github.com/rossfadely/consomme/blob/master/consomme/rotate_factor.py
         """
 
         self.comps_orig = comps_in
-        self.rot_mat = np.eye(comps_in.shape[1])
+        self.rot_mat = np.eye(self.comps_orig.shape[1])
 
-        score = 0
+        var = 0
         for _ in range(self.ITER_MAX):
-            old_score, score = score, self._rot_step()
-            if score < old_score:
+
+            lam_rot = np.dot(
+                self.comps_orig,
+                self.rot_mat
+                )
+
+            tmp = np.diag(np.mean(lam_rot ** 2, axis=0) * self.gamma) 
+
+            svd_u, svd_s, svd_v = np.linalg.svd(
+                np.dot(
+                    self.comps_orig.T,
+                    lam_rot ** 3 - np.dot(lam_rot, tmp)
+                    )
+                )
+
+            self.rot_mat = np.dot(svd_u, svd_v)
+
+            _var = np.sum(svd_s)
+            if _var < var:
                 break
+            var = _var
 
         # apply final rotation
-        self.comps_rot = self.comps_orig.dot(self.rot_mat)
+        self.comps_rot = np.dot(
+            self.comps_orig,
+            self.rot_mat
+            )
+
         self.flip_to_positive()
 
         return self.comps_rot
 
 
-    def _rot_step(self):
-        """
-        This is one step of the magic rotation computation
-        Based on:
-        https://github.com/rossfadely/consomme/blob/master/consomme/rotate_factor.py
-        """
-
-        comps_rot = np.dot(
-            self.comps_orig,
-            self.rot_mat
-            )
-
-        if self.gamma == 0:
-            tmp2 = np.dot(
-                self.comps_orig.T,
-                (comps_rot ** 3)
-                )
-
-        else:
-
-            tmp0 = np.diag(
-                self.gamma * np.mean(comps_rot ** 2, axis=0)
-                )
-
-            tmp1 = np.dot(
-                comps_rot,
-                tmp0
-                )
-
-            tmp2 = np.dot(
-                self.comps_orig.T,
-                (comps_rot ** 3) - tmp1
-                )
-
-        usv = np.linalg.svd(tmp2)
-
-        self.rot_mat = np.dot(usv[0], usv[2])
-        score = np.sum(usv[1])
-
-        return score
-
-
 class VarimaxRotator_python(OrthoRotator):
     """
-    class for varimax rotation
+    Class for python implementation of varimax rotation
     """
 
     def __init__(self):
@@ -131,7 +113,7 @@ class VarimaxRotator_python(OrthoRotator):
 
 class QuartimaxRotator_python(OrthoRotator):
     """
-    class for varimax rotation
+    Class for python implementation of quartimax rotation
     """
 
     def __init__(self):
@@ -147,83 +129,159 @@ class TfRotator(Rotator):
     """
 
     def __init__(self):
-        super(OrthoRotator, self).__init__()
+        super(TfRotator, self).__init__()
 
+        self.graph = None
+        self.tf_layers = {}
+        self.agg_axis = None
+
+    @staticmethod
+    def _new_var(initial_value):
+
+        new_shape = tf.TensorShape(initial_value.shape)
+
+        new_var = tf.Variable(
+            initial_value=initial_value,
+            expected_shape=new_shape,
+            )
+
+        return new_var
+
+    @staticmethod
+    def _mse(mat1, mat2):
+
+        mse = tf.reduce_mean(
+            tf.squared_difference(
+                tf.unstack(mat1),
+                tf.unstack(mat2),
+                name='err'
+                ),
+            name='mse'
+            )
+
+        return mse
+
+    @staticmethod
+    def _agg_var(comps, agg_axis):
+
+        agg_var = tf.reduce_mean(
+            tf.nn.moments(
+                comps**2,
+                axes=[agg_axis],
+                keep_dims=False,
+                name='var'
+                )[1],
+            keep_dims=False,
+            name='agg_var'
+            )
+
+        return agg_var
+
+
+    def _build_graph(self):
+
+        self.graph = tf.Graph()
+
+        with self.graph.as_default():
+
+            self.tf_layers['input'] = tf.placeholder(
+                tf.float64,
+                shape=self.comps_orig.shape,
+                name='input'
+                )
+
+            self.tf_layers['comps_orig'] = tf.nn.l2_normalize(
+                self.tf_layers['input'],
+                0,
+                name='comps_orig'
+                )
+
+            self.tf_layers['comps_rot'] = tf.nn.l2_normalize(
+                self._new_var(self.tf_layers['comps_orig']),
+                0,
+                name='comps_rot'
+                )
+
+            self.tf_layers['comps_recon'] = tf.matmul(
+                self.tf_layers['comps_rot'],
+                tf.matmul(
+                    self.tf_layers['comps_rot'],
+                    self.tf_layers['comps_orig'],
+                    transpose_a=True,
+                    transpose_b=False
+                    ),
+                transpose_a=False,
+                transpose_b=True,
+                name='comps_recon'
+                )
+
+            self.tf_layers['mse'] = self._mse(
+                self.tf_layers['comps_orig'],
+                self.tf_layers['comps_recon']
+                )
+
+            self.tf_layers['agg_var'] = self._agg_var(
+                self.tf_layers['comps_rot'],
+                self.agg_axis
+                )
+
+            self.tf_layers['optimizer'] = tf.train.AdamOptimizer(
+                name='optimizer'
+                ).minimize(
+                    self.tf_layers['mse'] - self.tf_layers['agg_var']
+                    )
 
     def rotate(self, comps_in):
-        """
-        Apply iterative orthogonal rotation
-        """
 
         self.comps_orig = comps_in
-        self.rot_mat = np.eye(comps_in.shape[1])
+        self._build_graph()
 
-        score = 0
-        for _ in range(self.ITER_MAX):
-            old_score, score = score, self._rot_step()
-            if score < old_score:
-                break
+        run_kwargs = {
+            'feed_dict': {
+                self.tf_layers['input']: self.comps_orig
+                }
+        }
+        
+        with tf.Session(graph=self.graph) as sess:
 
-        # apply final rotation
-        self.comps_rot = self.comps_orig.dot(self.rot_mat)
+            sess.run(
+                tf.global_variables_initializer(),
+                **run_kwargs
+                )
+
+            for _ in range(self.ITER_MAX):
+                sess.run(
+                    self.tf_layers['optimizer'],
+                    **run_kwargs
+                    )
+
+            self.comps_rot = sess.run(
+                [self.tf_layers['comps_rot']],
+                **run_kwargs
+                )[0]
+
         self.flip_to_positive()
 
         return self.comps_rot
 
 
-    def _rot_step(self):
-        """
-        This is one step of the magic rotation computation
-        Based on:
-        https://github.com/rossfadely/consomme/blob/master/consomme/rotate_factor.py
-        """
-
-        comps_rot = np.dot(
-            self.comps_orig,
-            self.rot_mat
-            )
-
-        if self.gamma == 0:
-            tmp2 = np.dot(
-                self.comps_orig.T,
-                (comps_rot ** 3)
-                )
-
-        else:
-
-            tmp0 = np.diag(
-                self.gamma * np.mean(comps_rot ** 2, axis=0)
-                )
-
-            tmp1 = np.dot(
-                comps_rot,
-                tmp0
-                )
-
-            tmp2 = np.dot(
-                self.comps_orig.T,
-                (comps_rot ** 3) - tmp1
-                )
-
-        usv = np.linalg.svd(tmp2)
-
-        self.rot_mat = np.dot(usv[0], usv[2])
-        score = np.sum(usv[1])
-
-        return score
-
 class VarimaxRotator_tf(TfRotator):
     """
-    class for varimax rotation
+    class for pseudo-varimax rotation
     """
 
     def __init__(self):
         super(VarimaxRotator_tf, self).__init__()
+        self.agg_axis = 0
+
+
 
 class QuartimaxRotator_tf(TfRotator):
     """
-    class for varimax rotation
+    class for pseudo-quartimax rotation
     """
 
     def __init__(self):
         super(QuartimaxRotator_tf, self).__init__()
+        self.agg_axis = 1
+

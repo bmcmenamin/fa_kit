@@ -3,23 +3,6 @@ The FactorAnalysis object that does most of the work
 """
 
 
-
-
-
-
-"""
-TO DO:
-
-write tests for rotation
-write scree plotters
-write global-run script
-"""
-
-
-
-
-
-
 import numpy as np
 import fa_kit as fa
 
