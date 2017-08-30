@@ -72,7 +72,7 @@ def retain_kaiser(vals, data_dim):
     return retain_idx
 
 
-def retain_broken_stick(vals):
+def retain_broken_stick(vals, broken_stick):
     """
     Figure out how many components to keep by aligning
     the dsitribution with a broken stick distribution
@@ -80,7 +80,6 @@ def retain_broken_stick(vals):
     """
 
     vals = np.array(sorted(vals)[::-1])
-    bs_distro = BrokenStick.rescale_broken_stick(vals)
-    retain_idx = bs_distro.find_where_target_exceeds(vals)
+    retain_idx = broken_stick.find_where_target_exceeds(vals)
 
     return retain_idx

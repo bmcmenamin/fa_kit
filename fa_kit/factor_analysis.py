@@ -6,6 +6,8 @@ The FactorAnalysis object that does most of the work
 import numpy as np
 import fa_kit as fa
 
+from fa_kit.broken_stick import BrokenStick
+
 class FactorAnalysis(object):
     """
     Base class for objects extract components
@@ -41,6 +43,7 @@ class FactorAnalysis(object):
         self.comps_rot = None
 
         self.props_raw = None
+        self.broken_stick = None
         self.retain_idx = None
 
 
@@ -54,9 +57,10 @@ class FactorAnalysis(object):
             self.noise_covar
             )
 
+        self.fit_stick = BrokenStick(self.props_raw)
 
-    @staticmethod
-    def _find_comps_to_retain(props, method='broken_stick', **kwargs):
+
+    def _find_comps_to_retain(self, props, method='broken_stick', **kwargs):
 
         if method == 'top_n':
             num_keep = kwargs.get('num_keep', 5)
@@ -71,7 +75,8 @@ class FactorAnalysis(object):
             retain_idx = fa.retention.retain_kaiser(props, data_dim)
 
         elif method == 'broken_stick':
-            retain_idx = fa.retention.retain_broken_stick(props)
+            retain_idx = fa.retention.retain_broken_stick(
+                props, self.fit_stick)
 
         else:
             raise Exception(
@@ -130,9 +135,9 @@ class FactorAnalysis(object):
         """
 
         if method == 'varimax':
-            rot_obj = fa.rotation.VarimaxRotator()
+            rot_obj = fa.rotation.VarimaxRotator_python()
         elif method == 'quartimax':
-            rot_obj = fa.rotation.QuartimaxRotator()
+            rot_obj = fa.rotation.QuartimaxRotator_python()
         else:
             raise Exception(
                 "Unknown method for rotation, {}".format(method)

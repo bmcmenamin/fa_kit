@@ -7,6 +7,12 @@ from scipy import linalg as sp_linalg
 
 import fa_kit.retention as retention
 
+
+PAF_OPTS = {
+    'max_iter': 100,
+    'tol': 1.0e-4
+}
+
 def _is_sorted(values, ascending=True):
 
     for i, j in zip(values, values[1:]):
@@ -59,12 +65,6 @@ def extract_components(data_covar, noise_covar=None):
     return comps, props
 
 
-PAF_OPTS = {
-    'max_iter': 100,
-    'tol': 1.0e-4
-}
-
-
 def _update_paf(num_comp, communality, data_covar, noise_covar=None):
 
     modified_covar = np.copy(data_covar)
@@ -90,7 +90,7 @@ def extract_using_paf(comps, data_covar, noise_covar=None, verbose=False):
     """
 
     new_comps = np.copy(comps)
-    new_props = np.zeros(new_comps.shape)
+    new_props = np.zeros(new_comps.shape[0])
 
     for step in range(PAF_OPTS['max_iter']):
 

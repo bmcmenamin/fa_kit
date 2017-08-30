@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 
 from fa_kit import retention
-
+from fa_kit import BrokenStick
 
 #
 # Testing number to retain calls
@@ -15,7 +15,7 @@ from fa_kit import retention
 
 TEST_DIM = 100
 
-TEST_DATA = sorted(np.random.randn(TEST_DIM,))
+TEST_DATA = sorted(np.random.randn(TEST_DIM,))[::-1]
 TEST_DATA /= np.sum(np.abs(TEST_DATA))
 
 
@@ -74,7 +74,6 @@ def test_toppct_retain(keep_pct=0.9):
     assert prev_kept_prop < keep_pct
 
 
-
 def test_kaiser_retain():
 
     with pytest.raises(ValueError):
@@ -91,6 +90,7 @@ def test_kaiser_retain():
 
 def test_bs_retain():
 
-    retain_idx = retention.retain_broken_stick(TEST_DATA)
+    bs = BrokenStick(TEST_DATA)
+    retain_idx = retention.retain_broken_stick(TEST_DATA, bs)
 
     minkept_maxdropped(TEST_DATA, retain_idx)

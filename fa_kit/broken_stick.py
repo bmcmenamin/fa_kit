@@ -11,8 +11,13 @@ class BrokenStick(object):
     to align with other distributions
     """
 
-    def __init__(self, dim):
-        self.values = self._calc_broken_stick(dim)
+    def __init__(self, in_vals):
+
+        if isinstance(in_vals, (float, int)):
+            self.values = self._calc_broken_stick(in_vals)
+        else:
+            self.values = self._calc_broken_stick(len(in_vals))
+            self.rescale_broken_stick(in_vals)
 
     @staticmethod
     def _calc_broken_stick(dim):
@@ -92,8 +97,7 @@ class BrokenStick(object):
 
         return True
 
-    @classmethod
-    def rescale_broken_stick(cls, target_data, weight_func=np.log):
+    def rescale_broken_stick(self, target_data, weight_func=lambda x: x**2):
         """
         rescale the broken stick distro's values to align with
         provided target_data. alignment happns by linear shift/scale
@@ -110,25 +114,21 @@ class BrokenStick(object):
         """
 
 
-        targ_is_sorted = cls._is_sorted(target_data, ascending=False)
+        targ_is_sorted = self._is_sorted(target_data, ascending=False)
         if not targ_is_sorted:
             raise ValueError('Target data is not sorted')
-
-        bs = cls(len(target_data))
 
         sort_idx = np.argsort(-np.abs(target_data))
         unsort_idx = np.argsort(sort_idx)
 
-        bs_sorted_fit = bs._fit_to_data(
-            bs.values,
+        bs_sorted_fit = self._fit_to_data(
+            self.values,
             np.abs(target_data[sort_idx]),
             weight_func(sort_idx + 1)
             )
 
         bs_unsorted_fit = bs_sorted_fit[unsort_idx] * np.sign(target_data)
-        bs.values = bs_unsorted_fit
-
-        return bs
+        self.values = bs_unsorted_fit
 
 
     def find_where_target_exceeds(self, target_data):

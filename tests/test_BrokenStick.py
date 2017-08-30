@@ -52,13 +52,13 @@ def test_init_neg():
 
 def _fit_to_self(scale, shift):
 
-    orig_vals = BrokenStick._calc_broken_stick(TEST_DIM)
+    orig_vals = BrokenStick(TEST_DIM).values
     targ_data = (scale * orig_vals) + shift
 
     _valid_bs_distro(orig_vals)
     _valid_bs_distro(targ_data)
 
-    bs = BrokenStick.rescale_broken_stick(targ_data)
+    bs = BrokenStick(targ_data)
     _valid_bs_distro(bs.values)
 
     if shift > 0.0:
@@ -93,11 +93,12 @@ def test_shift_and_fit():
 
 @pytest.fixture
 def shifted_bs():
-    orig_vals = BrokenStick._calc_broken_stick(TEST_DIM)
+    bs_orig = BrokenStick(TEST_DIM)
+    orig_vals = bs_orig.values
     shift_values = np.concatenate([orig_vals[0::2], -orig_vals[1::2]])
     shift_values = np.array(sorted(shift_values)[::-1])
 
-    bs = BrokenStick.rescale_broken_stick(shift_values)
+    bs = BrokenStick(shift_values)
     _valid_bs_distro(bs.values)
 
     return bs

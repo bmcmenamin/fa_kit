@@ -45,7 +45,6 @@ class Rotator(object):
         self.comps_rot /= l2_norms
 
 
-
 class OrthoRotator(Rotator):
     """
     Class that does orthogonal rotations
