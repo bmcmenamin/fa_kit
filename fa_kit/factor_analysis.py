@@ -16,6 +16,7 @@ class FactorAnalysis(object):
 
     def __init__(self, input_data, is_covar=False, noise_covar=None):
 
+
         if is_covar:
             if input_data.shape[0] != input_data.shape[1]:
                 raise NonSquareMatrix(input_data=input_data)
@@ -43,9 +44,15 @@ class FactorAnalysis(object):
         self.comps_rot = None
 
         self.props_raw = None
-        self.broken_stick = None
         self.retain_idx = None
 
+        self.retention_opts = {
+            'method': None,
+        }
+
+        self.rotation_opts = {
+            'method': None,
+        }
 
     def extract_components(self):
         """
@@ -57,26 +64,34 @@ class FactorAnalysis(object):
             self.noise_covar
             )
 
-        self.fit_stick = BrokenStick(self.props_raw)
-
 
     def _find_comps_to_retain(self, props, method='broken_stick', **kwargs):
 
+        self.retention_opts['method'] = method
+
         if method == 'top_n':
-            num_keep = kwargs.get('num_keep', 5)
-            retain_idx = fa.retention.retain_top_n(props, num_keep)
+            self.retention_opts['num_keep'] = kwargs.get('num_keep', 5)
+            retain_idx = fa.retention.retain_top_n(
+                props, self.retention_opts['num_keep']
+                )
 
         elif method == 'top_pct':
-            pct_keep = kwargs.get('pct_keep', .90)
-            retain_idx = fa.retention.retain_top_pct(props, pct_keep)
+            self.retention_opts['pct_keep'] = kwargs.get('pct_keep', .90)
+            retain_idx = fa.retention.retain_top_pct(
+                props, self.retention_opts['pct_keep']
+                )
 
         elif method == 'kaiser':
-            data_dim = kwargs.get('data_dim', len(props))
-            retain_idx = fa.retention.retain_kaiser(props, data_dim)
+            self.retention_opts['data_dim'] = kwargs.get('data_dim', len(props))
+            retain_idx = fa.retention.retain_kaiser(
+                props, self.retention_opts['data_dim']
+                )
 
         elif method == 'broken_stick':
+            self.retention_opts['fit_stick'] = BrokenStick(self.props_raw)
             retain_idx = fa.retention.retain_broken_stick(
-                props, self.fit_stick)
+                props, self.retention_opts['fit_stick']
+                )
 
         else:
             raise Exception(
@@ -133,6 +148,8 @@ class FactorAnalysis(object):
         """
         rotate components
         """
+
+        self.rotation_opts['method'] = method
 
         if method == 'varimax':
             rot_obj = fa.rotation.VarimaxRotator_python()

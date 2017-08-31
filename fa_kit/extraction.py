@@ -3,7 +3,8 @@ Functions for component extraction
 """
 
 import numpy as np
-from scipy import linalg as sp_linalg
+import scipy as sp
+import scipy.linalg as sp_linalg
 
 import fa_kit.retention as retention
 
