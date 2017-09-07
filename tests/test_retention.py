@@ -36,8 +36,6 @@ def minkept_maxdropped(vals, retain_idx):
         if i not in retain_idx
         ])
 
-    assert min_kept >= max_dropped
-
     return min_kept, max_dropped
 
 
@@ -50,7 +48,8 @@ def test_topn_retain(top_n=7):
 
     assert len(retain_idx) == top_n
     
-    minkept_maxdropped(TEST_DATA, retain_idx)
+    min_kept, max_dropped = minkept_maxdropped(TEST_DATA, retain_idx)
+    assert min_kept >= max_dropped
 
 
 def test_toppct_retain(keep_pct=0.9):
@@ -63,7 +62,8 @@ def test_toppct_retain(keep_pct=0.9):
 
     retain_idx = retention.retain_top_pct(TEST_DATA, keep_pct)
 
-    minkept_maxdropped(TEST_DATA, retain_idx)
+    min_kept, max_dropped = minkept_maxdropped(TEST_DATA, retain_idx)
+    assert min_kept >= max_dropped
 
     # at least keep_pct was retained
     kept_prop = np.sum(np.abs(TEST_DATA[retain_idx]))
@@ -82,6 +82,7 @@ def test_kaiser_retain():
     retain_idx = retention.retain_kaiser(TEST_DATA, TEST_DIM)
 
     min_kept, max_dropped = minkept_maxdropped(TEST_DATA, retain_idx)
+    assert min_kept >= max_dropped
 
     cutoff = 1.0 / TEST_DIM
     assert max_dropped < cutoff
@@ -93,4 +94,5 @@ def test_bs_retain():
     bs = BrokenStick(TEST_DATA)
     retain_idx = retention.retain_broken_stick(TEST_DATA, bs)
 
-    minkept_maxdropped(TEST_DATA, retain_idx)
+    min_kept, max_dropped = minkept_maxdropped(TEST_DATA, retain_idx)
+    assert min_kept >= max_dropped

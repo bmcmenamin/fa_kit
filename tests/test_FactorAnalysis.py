@@ -1,6 +1,7 @@
 """
 Unit tests for FactorAnalysis class
 """
+from itertools import product
 
 import pytest
 import numpy as np
@@ -13,13 +14,37 @@ from fa_kit.factor_analysis import DimensionMismatch, NonSquareMatrix
 # Testing input validation
 #
 
+
+
+def test_LabelMatch():
+
+    a_sample = np.random.randn(100,3)
+
+    with pytest.raises(ValueError):
+        fan = FactorAnalysis.load_data(a_sample, labels=[0,1])
+
+
+
+def test_AssocMatch():
+
+    num_feat = 3
+    a_sample = np.random.randn(100, num_feat)
+    a_sample -= a_sample.min() - 1
+
+    for m in product([True, False], repeat=2):
+        fan = FactorAnalysis.load_data(a_sample, preproc_demean=m[0], preproc_scale=m[1])
+        assert fan.data_covar.shape[0] == fan.data_covar.shape[1]
+        assert fan.data_covar.shape[0] == num_feat
+
+
 def test_DimensionMismatch():
 
     a_sq = np.eye(3)
     b_sq = np.eye(4)
 
     with pytest.raises(DimensionMismatch):
-        FactorAnalysis(a_sq, noise_covar=b_sq)
+        fan = FactorAnalysis.load_data_cov(a_sq)
+        fan.add_noise_cov(b_sq)
 
 
 def test_NonSquareCovar():
@@ -27,7 +52,7 @@ def test_NonSquareCovar():
     a_nonsq = np.ones((4,3))
 
     with pytest.raises(NonSquareMatrix):
-        FactorAnalysis(a_nonsq, is_covar=True)
+        fan = FactorAnalysis.load_data_cov(a_nonsq)
 
 
 def test_NonSquareNoise():
@@ -35,8 +60,9 @@ def test_NonSquareNoise():
     a_sq = np.eye(3)
     b_nonsq = np.ones((4, 3))
 
+    fan = FactorAnalysis.load_data_cov(a_sq)
     with pytest.raises(NonSquareMatrix):
-        FactorAnalysis(a_sq, noise_covar=b_nonsq)
+        fan.add_noise_cov(b_nonsq)
 
 #
 # Testing extraction
@@ -47,28 +73,24 @@ TEST_DIM = 100
 def test_extraction_covar():
 
     a_sq = np.eye(TEST_DIM)
-    test_analysis = FactorAnalysis(
-        a_sq,
-        is_covar=True)
-    test_analysis.extract_components()
+    fan = FactorAnalysis.load_data_cov(a_sq)
+    fan.extract_components()
 
     assert np.array_equal(
-        np.ones(TEST_DIM)/TEST_DIM,
-        test_analysis.props_raw
+        np.ones(TEST_DIM) / TEST_DIM,
+        fan.props_raw
     )
 
 def test_extraction_covar_and_noise():
 
     a_sq = np.eye(TEST_DIM)
-    test_analysis = FactorAnalysis(
-        a_sq,
-        noise_covar=a_sq,
-        is_covar=True)
-    test_analysis.extract_components()
+    fan = FactorAnalysis.load_data_cov(a_sq)
+    fan.add_noise_cov(a_sq)
+    fan.extract_components()
 
     assert np.array_equal(
-        np.ones(TEST_DIM)/TEST_DIM,
-        test_analysis.props_raw
+        np.ones(TEST_DIM) / TEST_DIM,
+        fan.props_raw
     )
 
 
@@ -77,14 +99,12 @@ def test_extraction_data():
     a_sq = np.eye(TEST_DIM)
     a_data = np.concatenate([a_sq]*4, axis=0)
 
-    test_analysis = FactorAnalysis(
-        a_data,
-        is_covar=False)
-    test_analysis.extract_components()
+    fan = FactorAnalysis.load_data(a_data)
+    fan.extract_components()
 
     assert np.array_equal(
-        np.ones(TEST_DIM)/TEST_DIM,
-        test_analysis.props_raw
+        np.ones(TEST_DIM) / TEST_DIM,
+        fan.props_raw
     )
 
 def test_extraction_data_and_noise():
@@ -92,15 +112,13 @@ def test_extraction_data_and_noise():
     a_sq = np.eye(TEST_DIM)
     a_data = np.concatenate([a_sq]*4, axis=0)
 
-    test_analysis = FactorAnalysis(
-        a_data,
-        noise_covar=a_sq,
-        is_covar=False)
-    test_analysis.extract_components()
+    fan = FactorAnalysis.load_data(a_data)
+    fan.add_noise_cov(a_sq)
+    fan.extract_components()
 
     assert np.array_equal(
-        np.ones(TEST_DIM)/TEST_DIM,
-        test_analysis.props_raw
+        np.ones(TEST_DIM) / TEST_DIM,
+        fan.props_raw
         )
 
 #
@@ -123,13 +141,10 @@ def random_fa():
 
     a_cov = a_data.T.dot(a_data)
 
-    test_analysis = FactorAnalysis(
-        a_cov,
-        is_covar=True)
+    fan = FactorAnalysis.load_data_cov(a_cov)
+    fan.extract_components()
 
-    test_analysis.extract_components()
-
-    return test_analysis
+    return fan
 
 
 def test_null_retain(random_fa):

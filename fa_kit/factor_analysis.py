@@ -4,6 +4,8 @@ The FactorAnalysis object that does most of the work
 
 
 import numpy as np
+import pandas as pd
+
 import fa_kit as fa
 
 from fa_kit.broken_stick import BrokenStick
@@ -14,30 +16,14 @@ class FactorAnalysis(object):
     from data
     """
 
-    def __init__(self, input_data, is_covar=False, noise_covar=None):
+    def __init__(self):
 
+        self.data_covar = None
+        self.noise_covar = None
 
-        if is_covar:
-            if input_data.shape[0] != input_data.shape[1]:
-                raise NonSquareMatrix(input_data=input_data)
-
-        if noise_covar is not None:
-            if noise_covar.shape[0] != noise_covar.shape[1]:
-                raise NonSquareMatrix(noise_covar=noise_covar)
-
-            if noise_covar.shape[1] != input_data.shape[1]:
-                raise DimensionMismatch(
-                    match_dim=1,
-                    noise_covar=noise_covar,
-                    input_data=input_data
-                    )
-
-        if is_covar:
-            self.data_covar = input_data
-        else:
-            self.data_covar = input_data.T.dot(input_data)
-
-        self.noise_covar = noise_covar
+        self.data_opts = {}
+        self.retention_opts = {}
+        self.rotation_opts = {}
 
         self.comps_raw = None
         self.comps_paf = None
@@ -46,13 +32,156 @@ class FactorAnalysis(object):
         self.props_raw = None
         self.retain_idx = None
 
-        self.retention_opts = {
-            'method': None,
-        }
 
-        self.rotation_opts = {
-            'method': None,
-        }
+    @staticmethod
+    def _panda_to_numpy(df_data, labels):
+        df_data = df_data.select_dtypes(include=[np.number])
+        if labels is not None:
+            print('overwriting input labels with column names')
+        labels = df_data.columns.tolist()
+        np_data = df_data.as_matrix()
+
+        return np_data, labels
+
+    @staticmethod
+    def _cleanup_labels(np_data, labels):
+        if labels is not None:
+            if len(labels) != np_data.shape[1]:
+                err_text = (
+                    'Number of labels, {}, does not match '
+                    'number of data features, {}'
+                    ).format(len(labels), np_data.shape[1])
+
+                raise ValueError(err_text)
+        else:
+            labels = list(range(np_data.shape[1]))
+
+        return labels
+
+    @staticmethod
+    def _norm_on_diag(sq_mat):
+        _denom = 1.0 / np.sqrt(np.diag(sq_mat)).reshape(-1, 1)
+        norm_mat = _denom * sq_mat * _denom.T
+        return norm_mat
+
+    @classmethod
+    def load_data(cls, input_data, labels=None, **kwargs):
+        """
+        Load per-sample data as either an n_samples-by-n_feat numpy array
+        or a pandas dataframe with samples as rows and features as columns
+        
+        preproc_demean indicates whether to demean input before calculating
+        covar matrix. preproc_scale indicates whether to scale input before
+        calculating covar matrix. Turn on both to calculate a correlation. Turn
+        on jut demean for covariance.
+
+        labels is a list of strings or ints used to label columns. If you pass
+        in a dataframe for input, that'll overwrite any labels you pass in
+        """
+
+        fa = cls()
+
+        data = input_data.copy()
+
+        # Turn dataframe into array
+        if isinstance(data, pd.core.frame.DataFrame):
+            data, labels = fa._panda_to_numpy(data, labels)
+
+        if not isinstance(data, np.ndarray):
+            raise TypeError((
+                "Input data is not numpy. It's {}".format(type(data))
+                ))
+
+        labels = fa._cleanup_labels(data, labels)
+
+        fa.data_opts = {
+            'preproc_demean': kwargs.get('preproc_demean', False),
+            'preproc_scale': kwargs.get('preproc_scale', False),
+            'labels': labels,
+            'labels_dict': {key: val for key, val in enumerate(labels)},
+            }
+
+
+        if fa.data_opts['preproc_demean']:
+            data -= np.mean(data, axis=0, keepdims=True)
+
+        fa.data_covar = data.T.dot(data) / (data.shape[0] - 1)
+
+        if fa.data_opts['preproc_scale']:
+            fa.data_covar = fa._norm_on_diag(fa.data_covar)
+
+
+        return fa
+
+    @classmethod
+    def load_data_cov(cls, input_data, labels=None, preproc_scale=False):
+        """
+        Load data that is already a square association matrix, such as a 
+        covariance matrix.
+
+        Input can be an n_samples-by-n_feat numpy array
+
+        labels is a list of strings or ints used to label columns. 
+
+        Note: pandas not allowed here.
+        """
+
+        fa = cls()
+
+        if not isinstance(input_data, np.ndarray):
+            raise TypeError((
+                "Input data is not numpy. It's {}".format(type(input_data))
+                ))
+
+        labels = fa._cleanup_labels(input_data, labels)
+
+        if input_data.shape[0] != input_data.shape[1]:
+            raise NonSquareMatrix(input_data=input_data)
+
+        fa.data_covar = input_data.copy()
+
+        fa.data_opts = {
+            'preproc_demean': None,
+            'preproc_scale': preproc_scale,
+            'labels': labels,
+            'labels_dict': {key: val for key, val in enumerate(labels)},
+            }
+
+        if fa.data_opts['preproc_scale']:
+            fa.data_covar = fa._norm_on_diag(fa.data_covar)
+
+        return fa
+
+
+    def add_noise_cov(self, input_data):
+        """
+        Load data that is already a square association matrix, such as a 
+        covariance matrix, that measures noise.
+
+        Input can be an n_samples-by-n_feat numpy array
+
+        labels is a list of strings or ints used to label columns. 
+
+        Note: pandas not allowed here.
+        """
+
+        if not isinstance(input_data, np.ndarray):
+            raise TypeError((
+                "Input data is not numpy. It's {}".format(type(input_data))
+                ))
+
+        if self.data_covar is None:
+            raise ValueError("Load data to define self.data_covar first")
+
+        if input_data.shape[0] != input_data.shape[1]:
+            raise NonSquareMatrix(input_data=input_data)
+
+        if input_data.shape[0] != self.data_covar.shape[0]:
+            raise DimensionMismatch(
+                match_dim=1,
+                noise_covar=input_data,
+                input_data=self.data_covar
+                )
 
     def extract_components(self):
         """
@@ -165,11 +294,15 @@ class FactorAnalysis(object):
         else:
             self.comps_rot = rot_obj.rotate(self.comps_raw)
 
-
     def get_component_scores(self, input_data):
         """
         get component scores on new data
         """
+
+        raise NotImplementedError
+        # I need to replicate the proprocessing 
+        # on each input (e.g., demean, scaling)
+
 
         if self.comps_rot is not None:
             return input_data.dot(self.comps_rot.T)
@@ -181,6 +314,7 @@ class FactorAnalysis(object):
             return input_data.dot(self.comps_raw.T)
 
         raise Exception('No components found...')
+
 
 
 

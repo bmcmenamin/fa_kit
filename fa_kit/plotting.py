@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def full_summary(fa, num_eigs_to_plot=30):
+def graph_summary(fa, num_eigs_to_plot=30):
     """
     Plot a summary of the factor analysis
     """
@@ -84,3 +84,32 @@ def full_summary(fa, num_eigs_to_plot=30):
             axes[p_num].set_title('Rotated Components')
 
     return fig
+
+
+
+def text_summary(fa, top_n_items=10, cutoff=0.5):
+    """
+    Write out a text summary of what's in each component
+    """
+
+    for comp_num, idx in enumerate(fa.retain_idx):
+
+        if fa.comps_rot is not None:
+            comp = fa.comps_rot[:, idx]
+        elif fa.comps_paf is not None:
+            comp = fa.comps_paf[:, idx]
+        elif fa.comps_raw is not None:
+            comp = fa.comps_raw[:, idx]
+        else:
+            raise ValueError('No components extracted yet!')
+
+        abs_max = np.abs(comp).max()
+        top_n_item_idx = np.argsort(-np.abs(comp))[:top_n_items]
+        print('COMPONENT {} (index {})'.format(comp_num, idx))
+        for item in top_n_item_idx:
+            if np.abs(comp[item]) > (cutoff*abs_max):
+                item_score = comp[item]*len(comp)
+                item_name = fa.data_opts['labels_dict'][item]
+                print("\t{:.1f}: {}".format(item_score, item_name))
+            else:
+                break
