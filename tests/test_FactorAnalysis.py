@@ -21,7 +21,7 @@ def test_LabelMatch():
     a_sample = np.random.randn(100,3)
 
     with pytest.raises(ValueError):
-        fan = FactorAnalysis.load_data(a_sample, labels=[0,1])
+        fan = FactorAnalysis.load_data_samples(a_sample, labels=[0,1])
 
 
 
@@ -32,7 +32,7 @@ def test_AssocMatch():
     a_sample -= a_sample.min() - 1
 
     for m in product([True, False], repeat=2):
-        fan = FactorAnalysis.load_data(a_sample, preproc_demean=m[0], preproc_scale=m[1])
+        fan = FactorAnalysis.load_data_samples(a_sample, preproc_demean=m[0], preproc_scale=m[1])
         assert fan.data_covar.shape[0] == fan.data_covar.shape[1]
         assert fan.data_covar.shape[0] == num_feat
 
@@ -99,7 +99,7 @@ def test_extraction_data():
     a_sq = np.eye(TEST_DIM)
     a_data = np.concatenate([a_sq]*4, axis=0)
 
-    fan = FactorAnalysis.load_data(a_data)
+    fan = FactorAnalysis.load_data_samples(a_data)
     fan.extract_components()
 
     assert np.array_equal(
@@ -112,7 +112,7 @@ def test_extraction_data_and_noise():
     a_sq = np.eye(TEST_DIM)
     a_data = np.concatenate([a_sq]*4, axis=0)
 
-    fan = FactorAnalysis.load_data(a_data)
+    fan = FactorAnalysis.load_data_samples(a_data)
     fan.add_noise_cov(a_sq)
     fan.extract_components()
 
@@ -157,3 +157,24 @@ def test_topn_retain(random_fa, top_n=7):
     random_fa.find_comps_to_retain(method='top_n', num_keep=top_n)
 
     assert all(random_fa.retain_idx == list(range(top_n)))
+
+
+#
+# Testing getting component scores
+#
+
+
+def test_null_retain(random_fa):
+
+    num_keep = 5
+
+    random_fa.find_comps_to_retain(
+        method='top_n', num_keep=num_keep)
+    
+    random_fa.reextract_using_paf()
+
+    obs_data = np.random.randn(500, TEST_DIM)
+    scores = random_fa.get_component_scores(obs_data)
+
+
+    assert scores.shape == (500, num_keep)

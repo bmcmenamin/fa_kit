@@ -5,6 +5,7 @@ Methods used for calculating factor retention
 import numpy as np
 from fa_kit.broken_stick import BrokenStick
 
+
 def retain_top_n(vals, num_keep):
     """
     Retain the top N largest components
@@ -83,3 +84,4 @@ def retain_broken_stick(vals, broken_stick):
     retain_idx = broken_stick.find_where_target_exceeds(vals)
 
     return retain_idx
+

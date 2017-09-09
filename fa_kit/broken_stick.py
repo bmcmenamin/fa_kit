@@ -134,7 +134,7 @@ class BrokenStick(object):
     def find_where_target_exceeds(self, target_data):
         """
         Return the indices where the absolute value of the
-        target vecotr exceed the broken stick distro
+        target vector exceed the broken stick distro
         """
 
         good_idx_pos = []

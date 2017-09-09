@@ -15,7 +15,7 @@ from fa_kit import BrokenStick
 
 TEST_DIM = 100
 
-TEST_DATA = sorted(np.random.randn(TEST_DIM,))[::-1]
+TEST_DATA = sorted(np.random.randn(TEST_DIM,)**2)[::-1]
 TEST_DATA /= np.sum(np.abs(TEST_DATA))
 
 

@@ -40,7 +40,6 @@ def test_quartimax_python():
         )
 
 
-
 def test_varimax_tf():
     """
     Test varimax rotation TF implementation
