@@ -76,7 +76,7 @@ def test_extraction_covar():
     fan = FactorAnalysis.load_data_cov(a_sq)
     fan.extract_components()
 
-    assert np.array_equal(
+    assert np.allclose(
         np.ones(TEST_DIM) / TEST_DIM,
         fan.props_raw
     )
@@ -88,7 +88,7 @@ def test_extraction_covar_and_noise():
     fan.add_noise_cov(a_sq)
     fan.extract_components()
 
-    assert np.array_equal(
+    assert np.allclose(
         np.ones(TEST_DIM) / TEST_DIM,
         fan.props_raw
     )
@@ -99,27 +99,17 @@ def test_extraction_data():
     a_sq = np.eye(TEST_DIM)
     a_data = np.concatenate([a_sq]*4, axis=0)
 
-    fan = FactorAnalysis.load_data_samples(a_data)
+    fan = FactorAnalysis.load_data_samples(
+        a_data,
+        preproc_demean=False,
+        preproc_scale=True)
     fan.extract_components()
 
-    assert np.array_equal(
+    assert np.allclose(
         np.ones(TEST_DIM) / TEST_DIM,
         fan.props_raw
     )
 
-def test_extraction_data_and_noise():
-
-    a_sq = np.eye(TEST_DIM)
-    a_data = np.concatenate([a_sq]*4, axis=0)
-
-    fan = FactorAnalysis.load_data_samples(a_data)
-    fan.add_noise_cov(a_sq)
-    fan.extract_components()
-
-    assert np.array_equal(
-        np.ones(TEST_DIM) / TEST_DIM,
-        fan.props_raw
-        )
 
 #
 # Testing number to retain calls

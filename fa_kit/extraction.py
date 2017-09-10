@@ -4,10 +4,13 @@ Functions for component extraction
 
 import numpy as np
 import scipy as sp
-import scipy.linalg as sp_linalg
 
 import fa_kit.retention as retention
 
+
+EIG_OPTS = {
+    'noise_reg': 1.0e-4
+}
 
 PAF_OPTS = {
     'max_iter': 100,
@@ -48,10 +51,19 @@ def extract_components(data_covar, noise_covar=None):
     """
 
     if noise_covar is not None:
-        props, comps = sp_linalg.eigh(
-            a=data_covar,
-            b=noise_covar
+
+        reg_noise = EIG_OPTS['noise_reg']*np.eye(noise_covar.shape[0])
+        reg_noise += noise_covar
+
+        inv_noise = np.linalg.inv(reg_noise)
+
+        props, comps = np.linalg.eigh(
+            inv_noise.dot(data_covar)
             )
+
+        base_snr = np.trace(data_covar) / np.trace(inv_noise)
+        props = np.log(props) + np.log(base_snr)
+
     else:
         props, comps = np.linalg.eigh(
             data_covar

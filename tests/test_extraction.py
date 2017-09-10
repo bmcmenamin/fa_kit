@@ -38,8 +38,8 @@ def test_extraction_covar():
 
     assert extraction._is_sorted(props, ascending=False)
 
-    assert np.array_equal(
-        np.ones(TEST_DIM)/TEST_DIM,
+    assert np.allclose(
+        np.ones(TEST_DIM) / TEST_DIM,
         props
     )
 
@@ -51,13 +51,13 @@ def test_extraction_covar_and_noise():
 
     comps, props = extraction.extract_components(
         np.eye(TEST_DIM),
-        noise_covar=0.1*np.eye(TEST_DIM)
+        noise_covar=np.eye(TEST_DIM)
         )
 
     assert extraction._is_sorted(props, ascending=False)
     
-    assert np.array_equal(
-        np.ones(TEST_DIM)/TEST_DIM,
+    assert np.allclose(
+        np.ones(TEST_DIM) / TEST_DIM,
         props
     )
 
@@ -70,7 +70,7 @@ def test_paf_step(num_comp=5):
         np.eye(TEST_DIM),
         noise_covar=None)
     
-    assert np.array_equal(
+    assert np.allclose(
         new_comps.T.dot(new_comps),
         np.eye(num_comp)
     )

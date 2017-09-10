@@ -295,7 +295,11 @@ class FactorAnalysis(object):
             self.params_retention['data_dim'] = kwargs.get(
                 'data_dim', len(self.props_raw,))
         elif method == 'broken_stick':
-            self.params_retention['fit_stick'] = BrokenStick(self.props_raw)
+            fit_bs_on_log = self.params_data['noise_covar'] is None
+            self.params_retention['fit_stick'] = BrokenStick(
+                self.props_raw,
+                fit_on_log=fit_bs_on_log
+                )
         else:
             raise Exception(
                 "Unknown method for retention, {}".format(method)

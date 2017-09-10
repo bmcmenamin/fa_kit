@@ -11,13 +11,15 @@ class BrokenStick(object):
     to align with other distributions
     """
 
-    def __init__(self, in_vals):
+    def __init__(self, in_vals, **kwargs):
 
         if isinstance(in_vals, (float, int)):
             self.values = self._calc_broken_stick(in_vals)
         else:
             self.values = self._calc_broken_stick(len(in_vals))
-            self.rescale_broken_stick(in_vals)
+
+            fit_on_log = kwargs.get('fit_on_log', True)
+            self.rescale_broken_stick(in_vals, fit_on_log=fit_on_log)
 
     @staticmethod
     def _calc_broken_stick(dim):
@@ -56,7 +58,8 @@ class BrokenStick(object):
         return w_mean, w_std
 
     @classmethod
-    def _fit_to_data(cls, distro_values, target_data, weights=None):
+    def _fit_to_data(cls, distro_values, target_data,
+        weights=None, fit_on_log=True):
         """
         scale and shift the values in the broken stick to
         best match a set of observed data in target_data
@@ -69,18 +72,23 @@ class BrokenStick(object):
         fitting to each of the values in data.
         """
 
-        targ_log = np.log(target_data + 1)
-        dist_log = np.log(distro_values + 1)
 
-        targ_wmean, targ_wsd = cls._weighted_moments(targ_log, weights)
-        dist_wmean, dist_wsd = cls._weighted_moments(dist_log, weights)
+        if fit_on_log:
+            targ_trans = np.log(target_data + 1)
+            dist_trans = np.log(distro_values + 1)
+        else:
+            targ_trans = target_data
+            dist_trans = distro_values
+
+        targ_wmean, targ_wsd = cls._weighted_moments(targ_trans, weights)
+        dist_wmean, dist_wsd = cls._weighted_moments(dist_trans, weights)
 
         scale = targ_wsd / dist_wsd
         shift = targ_wmean - scale*dist_wmean
 
-        dist_log_fit = scale*dist_log + shift
+        dist_trans_fit = scale*dist_trans + shift
 
-        dist_fit = np.exp(dist_log_fit) - 1
+        dist_fit = np.exp(dist_trans_fit) - 1
 
         return dist_fit
 
@@ -111,7 +119,7 @@ class BrokenStick(object):
             )
         return f_info
 
-    def rescale_broken_stick(self, target_data):
+    def rescale_broken_stick(self, target_data, fit_on_log=True):
         """
         rescale the broken stick distro's values to align with
         provided target_data. alignment happns by linear shift/scale
@@ -127,14 +135,15 @@ class BrokenStick(object):
         sort_idx = np.argsort(-np.abs(target_data))
         unsort_idx = np.argsort(sort_idx)
 
-        inv_fisher_info = self._fisher_info(target_data[sort_idx]) ** -2.0
+        inv_fisher_info = self._fisher_info(np.abs(target_data[sort_idx])) ** -2.0
         weights = np.cumsum(inv_fisher_info)
         weights -= weights.min()
 
         bs_sorted_fit = self._fit_to_data(
             self.values,
             np.abs(target_data[sort_idx]),
-            weights
+            weights,
+            fit_on_log=fit_on_log
             )
 
         bs_unsorted_fit = bs_sorted_fit[unsort_idx] * np.sign(target_data)
