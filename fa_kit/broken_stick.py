@@ -97,19 +97,25 @@ class BrokenStick(object):
 
         return True
 
-    def rescale_broken_stick(self, target_data, weight_func=lambda x: x**2):
+    @staticmethod
+    def _fisher_info(data):
+
+        pad = 1.0e-16 * np.mean(data)
+        data_pad = data - data.min() + pad
+        data_pad /= np.sum(data_pad)
+
+        log_data = np.log(data_pad)
+
+        f_info = np.abs(
+            np.gradient(np.gradient(log_data))
+            )
+        return f_info
+
+    def rescale_broken_stick(self, target_data):
         """
         rescale the broken stick distro's values to align with
         provided target_data. alignment happns by linear shift/scale
         on log-transformed values.
-
-        optional weight_func vector allows you to specify how to downweight
-        contributions of individual datapoints to the fit. the weight will
-        be calculated by applying this function to the abs-magnitude rank
-        of eacn input.
-
-        The default function is np.log, so the largest target_value will
-        have weight np.log(1), second largest, np.log(2), etc.
 
         """
 
@@ -121,10 +127,14 @@ class BrokenStick(object):
         sort_idx = np.argsort(-np.abs(target_data))
         unsort_idx = np.argsort(sort_idx)
 
+        inv_fisher_info = self._fisher_info(target_data[sort_idx]) ** -2.0
+        weights = np.cumsum(inv_fisher_info)
+        weights -= weights.min()
+
         bs_sorted_fit = self._fit_to_data(
             self.values,
             np.abs(target_data[sort_idx]),
-            weight_func(sort_idx + 1)
+            weights
             )
 
         bs_unsorted_fit = bs_sorted_fit[unsort_idx] * np.sign(target_data)

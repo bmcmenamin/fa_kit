@@ -33,8 +33,8 @@ def test_AssocMatch():
 
     for m in product([True, False], repeat=2):
         fan = FactorAnalysis.load_data_samples(a_sample, preproc_demean=m[0], preproc_scale=m[1])
-        assert fan.data_covar.shape[0] == fan.data_covar.shape[1]
-        assert fan.data_covar.shape[0] == num_feat
+        assert fan.params_data['data_covar'].shape[0] == fan.params_data['data_covar'].shape[1]
+        assert fan.params_data['data_covar'].shape[0] == num_feat
 
 
 def test_DimensionMismatch():
@@ -156,7 +156,7 @@ def test_topn_retain(random_fa, top_n=7):
 
     random_fa.find_comps_to_retain(method='top_n', num_keep=top_n)
 
-    assert all(random_fa.retain_idx == list(range(top_n)))
+    assert all(random_fa.comps['retain_idx'] == list(range(top_n)))
 
 
 #

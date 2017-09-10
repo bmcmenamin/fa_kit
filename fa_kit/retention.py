@@ -13,7 +13,7 @@ def retain_top_n(vals, num_keep):
 
     if num_keep < 1:
         raise ValueError(
-            "Must select num_keep >= 1 when using 'top_n' retention"
+            "Must select num_keep >= 1 when using 'top_n' retention "
             "criterion. Currently, num_keep = {}".format(num_keep))
 
     absmag_order = np.argsort(-np.abs(vals))

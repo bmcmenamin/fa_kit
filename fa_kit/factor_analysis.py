@@ -2,7 +2,6 @@
 The FactorAnalysis object that does most of the work
 """
 
-
 import numpy as np
 import pandas as pd
 
@@ -34,6 +33,7 @@ class NonSquareMatrix(ValueError):
             )
 
         super(NonSquareMatrix, self).__init__(message)
+
 
 class DimensionMismatch(ValueError):
     """
@@ -91,22 +91,24 @@ class FactorAnalysis(object):
     from data
     """
 
-
     def __init__(self):
 
-        self.data_covar = None
-        self.noise_covar = None
+        self.params_data = {
+            'data_covar': None,
+            'noise_covar': None
+            }
 
-        self.data_opts = {}
-        self.retention_opts = {}
-        self.rotation_opts = {}
+        self.params_retention = {}
+        self.params_rotation = {}
 
-        self.comps_raw = None
-        self.comps_paf = None
-        self.comps_rot = None
+        self.comps = {
+            'raw': None,
+            'paf': None,
+            'rot': None,
+            'retain_idx': None
+        }
 
         self.props_raw = None
-        self.retain_idx = None
 
 
     def load_data(self, data, is_cov=False):
@@ -123,32 +125,31 @@ class FactorAnalysis(object):
             if data.shape[0] != data.shape[1]:
                 raise NonSquareMatrix(input_data=data)
 
-            self.data_opts['input_mean'] = None
-            self.data_opts['input_scale'] = np.sqrt(
+            self.params_data['input_mean'] = None
+            self.params_data['input_scale'] = np.sqrt(
                 np.diag(data)
                 ).reshape(1, -1)
 
-            if self.data_opts['preproc_scale']:
-                data /= self.data_opts['input_scale']
-                data /= self.data_opts['input_scale'].T
-
-            self.data_covar = data
+            if self.params_data['preproc_scale']:
+                data /= self.params_data['input_scale']
+                data /= self.params_data['input_scale'].T
 
         else:
 
-            self.data_opts['input_mean'] = np.mean(data, axis=0, keepdims=True)
+            self.params_data['input_mean'] = np.mean(data, axis=0, keepdims=True)
 
-            if self.data_opts['preproc_demean']:
-                data -= self.data_opts['input_mean']
+            if self.params_data['preproc_demean']:
+                data -= self.params_data['input_mean']
 
-            self.data_opts['input_scale'] = np.sqrt(np.mean(
+            self.params_data['input_scale'] = np.sqrt(np.mean(
                 data**2, axis=0, keepdims=True))
 
-            if self.data_opts['preproc_scale']:
-                data /= self.data_opts['input_scale']
+            if self.params_data['preproc_scale']:
+                data /= self.params_data['input_scale']
 
-            self.data_covar = data.T.dot(data) / (data.shape[0] - 1)
+            data = data.T.dot(data) / (data.shape[0] - 1)
 
+        self.params_data['data_covar'] = data
 
     @classmethod
     def load_data_samples(cls, input_data, labels=None, **kwargs):
@@ -173,12 +174,14 @@ class FactorAnalysis(object):
 
         labels = _cleanup_labels(data, labels)
 
-        fa_obj.data_opts = {
+        new_params = {
             'preproc_demean': kwargs.get('preproc_demean', False),
             'preproc_scale': kwargs.get('preproc_scale', False),
             'labels': labels,
             'labels_dict': {key: val for key, val in enumerate(labels)},
             }
+
+        fa_obj.params_data.update(new_params)
 
         fa_obj.load_data(data, is_cov=False)
 
@@ -202,12 +205,14 @@ class FactorAnalysis(object):
         data = input_data.copy()
         labels = _cleanup_labels(data, labels)
 
-        fa_obj.data_opts = {
+        new_params = {
             'preproc_demean': None,
             'preproc_scale': preproc_scale,
             'labels': labels,
             'labels_dict': {key: val for key, val in enumerate(labels)},
             }
+
+        fa_obj.params_data.update(new_params)
 
         fa_obj.load_data(data, is_cov=True)
 
@@ -231,18 +236,20 @@ class FactorAnalysis(object):
                 "Input data is not numpy. It's {}".format(type(input_data))
                 ))
 
-        if self.data_covar is None:
-            raise ValueError("Load data to define self.data_covar first")
+        if self.params_data['data_covar'] is None:
+            raise ValueError("Load data to define self.params_data['data_covar'] first")
 
         if input_data.shape[0] != input_data.shape[1]:
             raise NonSquareMatrix(input_data=input_data)
 
-        if input_data.shape[0] != self.data_covar.shape[0]:
+        if input_data.shape[1] != self.params_data['data_covar'].shape[1]:
             raise DimensionMismatch(
                 match_dim=1,
                 noise_covar=input_data,
-                input_data=self.data_covar
+                input_data=self.params_data['data_covar']
                 )
+
+        self.params_data['noise_covar'] = input_data
 
 
     def extract_components(self):
@@ -250,9 +257,9 @@ class FactorAnalysis(object):
         decompose data into components
         """
 
-        self.comps_raw, self.props_raw = fa.extraction.extract_components(
-            self.data_covar,
-            self.noise_covar
+        self.comps['raw'], self.props_raw = fa.extraction.extract_components(
+            self.params_data['data_covar'],
+            self.params_data['noise_covar']
             )
 
 
@@ -277,49 +284,46 @@ class FactorAnalysis(object):
         """
 
 
-        # Set up parameters
-
-        self.retention_opts['method'] = method
+        # Store paramteres
+        self.params_retention['method'] = method
 
         if method == 'top_n':
-            self.retention_opts['num_keep'] = kwargs.get('num_keep', 5)
+            self.params_retention['num_keep'] = kwargs.get('num_keep', 5)
         elif method == 'top_pct':
-            self.retention_opts['pct_keep'] = kwargs.get('pct_keep', .90)
+            self.params_retention['pct_keep'] = kwargs.get('pct_keep', .90)
         elif method == 'kaiser':
-            self.retention_opts['data_dim'] = kwargs.get(
+            self.params_retention['data_dim'] = kwargs.get(
                 'data_dim', len(self.props_raw,))
         elif method == 'broken_stick':
-            self.retention_opts['fit_stick'] = BrokenStick(self.props_raw)
+            self.params_retention['fit_stick'] = BrokenStick(self.props_raw)
         else:
             raise Exception(
                 "Unknown method for retention, {}".format(method)
                 )
 
 
-        # Run extraction
-
+        # Figure out number to retain
         if method == 'top_n':
-            self.retain_idx = fa.retention.retain_top_n(
-                self.props_raw, self.retention_opts['num_keep']
+            self.comps['retain_idx'] = fa.retention.retain_top_n(
+                self.props_raw, self.params_retention['num_keep']
                 )
 
         elif method == 'top_pct':
-            self.retain_idx = fa.retention.retain_top_pct(
-                self.props_raw, self.retention_opts['pct_keep']
+            self.comps['retain_idx'] = fa.retention.retain_top_pct(
+                self.props_raw, self.params_retention['pct_keep']
                 )
 
         elif method == 'kaiser':
-            self.retain_idx = fa.retention.retain_kaiser(
-                self.props_raw, self.retention_opts['data_dim']
+            self.comps['retain_idx'] = fa.retention.retain_kaiser(
+                self.props_raw, self.params_retention['data_dim']
                 )
 
         elif method == 'broken_stick':
-            self.retain_idx = fa.retention.retain_broken_stick(
-                self.props_raw, self.retention_opts['fit_stick']
+            self.comps['retain_idx'] = fa.retention.retain_broken_stick(
+                self.props_raw, self.params_retention['fit_stick']
                 )
 
-        return self.retain_idx
-
+        return self.comps['retain_idx']
 
 
     def reextract_using_paf(self):
@@ -329,10 +333,10 @@ class FactorAnalysis(object):
         factors
         """
 
-        self.comps_paf = fa.extraction.extract_using_paf(
-            self.comps_raw[:, self.retain_idx],
-            self.data_covar,
-            noise_covar=self.noise_covar,
+        self.comps['paf'] = fa.extraction.extract_using_paf(
+            self.comps['raw'][:, self.comps['retain_idx']],
+            self.params_data['data_covar'],
+            noise_covar=self.params_data['noise_covar'],
             verbose=False
             )
 
@@ -342,7 +346,7 @@ class FactorAnalysis(object):
         rotate components
         """
 
-        self.rotation_opts['method'] = method
+        self.params_rotation['method'] = method
 
         if method == 'varimax':
             rot_obj = fa.rotation.VarimaxRotator_python()
@@ -357,36 +361,33 @@ class FactorAnalysis(object):
                 "Unknown method for rotation, {}".format(method)
                 )
 
-        if self.comps_paf is not None:
-            self.comps_rot = rot_obj.rotate(self.comps_paf)
+        if self.comps['paf'] is not None:
+            self.comps['rot'] = rot_obj.rotate(self.comps['paf'])
         else:
-            self.comps_rot = rot_obj.rotate(self.comps_raw)
+            self.comps['rot'] = rot_obj.rotate(self.comps['raw'])
+
 
     def get_component_scores(self, input_data):
         """
-        get component scores on new data
+        get component scores from a set of data samples.
         """
 
 
         # Apply preprocessing
-        if self.data_opts['preproc_demean']:
-            input_data -= self.data_opts['input_mean']
+        if self.params_data['preproc_demean']:
+            input_data -= self.params_data['input_mean']
 
-        if self.data_opts['preproc_scale']:
-            input_data /= self.data_opts['input_scale']
+        if self.params_data['preproc_scale']:
+            input_data /= self.params_data['input_scale']
 
         # Project data onto components
-        if self.comps_rot is not None:
-            return input_data.dot(self.comps_rot)
+        if self.comps['rot'] is not None:
+            return input_data.dot(self.comps['rot'])
 
-        if self.comps_paf is not None:
-            return input_data.dot(self.comps_paf)
+        if self.comps['paf'] is not None:
+            return input_data.dot(self.comps['paf'])
 
-        if self.comps_raw is not None:
-            return input_data.dot(self.comps_raw)
+        if self.comps['raw'] is not None:
+            return input_data.dot(self.comps['raw'])
 
         raise Exception('No components found in model. Run extraction.')
-
-
-
-
