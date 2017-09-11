@@ -1,5 +1,5 @@
-"""
-Functions for component extraction
+"""This module contains functions used for extracting components
+from a covariance matrix.
 """
 
 import numpy as np
@@ -8,32 +8,20 @@ import scipy as sp
 import fa_kit.retention as retention
 
 
+# Options used in Factor extraction
 EIG_OPTS = {
     'noise_reg': 1.0e-4
 }
 
+# Options used in Prinicple Axis Factoring
 PAF_OPTS = {
     'max_iter': 100,
     'tol': 1.0e-4
 }
 
-def _is_sorted(values, ascending=True):
 
-    for i, j in zip(values, values[1:]):
-
-        if ascending and i > j:
-            return False
-
-        if not ascending and i < j:
-            return False
-
-    return True
-
-def _ensure_ordering(comps, props):
-    """
-    ensures that the extract components
-    are properly ordered
-    """
+def reorder_components(comps, props):
+    """Ensure that the components are ordered in terms of decreasing proportion"""
 
     new_order = np.argsort(props)[::-1]
 
@@ -45,43 +33,54 @@ def _ensure_ordering(comps, props):
 
 def extract_components(data_covar, noise_covar=None):
     """
-    Extract components from a covariance matrix, data_covar
-    If an additional covar matrix, noise_covar, is added we will
-    use generalized eigenvalue solution
+    Given a covariance matrix, `data_covar`, extract it's components (`comps`)
+    and the proportion of covaraince that each explains (`props`).
+
+    You can also specify a second matrix `noise_covar` that contains
+    information about how noise is distributed. If you do that, `props` will
+    be replaced by the log-SNR value which can be negative.
     """
 
-    if noise_covar is not None:
+    if noise_covar is None:
 
+        # Extract component using eigendecomposition
+        props, comps = np.linalg.eigh(
+            data_covar
+            )
+
+    else:
+        # Add an identity matrix to the noise matrix to ensure full rank
         reg_noise = EIG_OPTS['noise_reg']*np.eye(noise_covar.shape[0])
         reg_noise += noise_covar
 
         inv_noise = np.linalg.inv(reg_noise)
 
+        # Pre-multiply by the inverse nose matrix, which is equivalent to
+        # doing a generalized eigenvalue solution
         props, comps = np.linalg.eigh(
             inv_noise.dot(data_covar)
             )
 
-        base_snr = np.trace(data_covar) / np.trace(inv_noise)
+        # Turn eigenvalues into log-SNR
+        base_snr = np.trace(data_covar) / np.trace(reg_noise)
         props = np.log(props) + np.log(base_snr)
-
-    else:
-        props, comps = np.linalg.eigh(
-            data_covar
-            )
 
     comps = np.real(comps)
     props = np.real(props)
     props /= np.sum(np.abs(props))
 
-    comps, props = _ensure_ordering(comps, props)
+    comps, props = reorder_components(comps, props)
 
     return comps, props
 
 
-def _update_paf(num_comp, communality, data_covar, noise_covar=None):
+def _paf_step(comps, data_covar, noise_covar=None):
+    """Re-extract components while downweighting by communality"""
 
+    communality = np.sum(comps**2, axis=1)
+
+    # Use communality to scale down the variance along the diagonal
     modified_covar = np.copy(data_covar)
-
     np.fill_diagonal(
         modified_covar,
         communality * np.diag(data_covar)
@@ -92,14 +91,15 @@ def _update_paf(num_comp, communality, data_covar, noise_covar=None):
         noise_covar
         )
 
-    retain_idx = retention.retain_top_n(new_props, num_comp)
+    retain_idx = retention.retain_top_n(new_props, comps.shape[1])
 
     return new_comps[:, retain_idx], new_props
 
 
 def extract_using_paf(comps, data_covar, noise_covar=None, verbose=False):
     """
-    use principle axis factoring
+    Use principle axis factoring to re-extract factors from a covariance
+    matrix while reducing the weights placed on features with low communality
     """
 
     new_comps = np.copy(comps)
@@ -109,9 +109,8 @@ def extract_using_paf(comps, data_covar, noise_covar=None, verbose=False):
 
         old_comps, old_props = new_comps, new_props
 
-        new_comps, new_props = _update_paf(
-            old_comps.shape[1],
-            np.sum(old_comps**2, axis=1),
+        new_comps, new_props = _paf_step(
+            old_comps,
             data_covar,
             noise_covar=noise_covar)
 
