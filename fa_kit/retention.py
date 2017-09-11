@@ -1,5 +1,4 @@
-"""
-Methods used for calculating factor retention
+"""Module contains Methods used for figuring out which/how many factors to retain
 """
 
 import numpy as np
@@ -7,9 +6,7 @@ from fa_kit.broken_stick import BrokenStick
 
 
 def retain_top_n(vals, num_keep):
-    """
-    Retain the top N largest components
-    """
+    """Retain the top N largest components"""
 
     if num_keep < 1:
         raise ValueError(
@@ -24,8 +21,8 @@ def retain_top_n(vals, num_keep):
 
 def retain_top_pct(vals, pct_keep):
     """
-    Retain as many components as you need to capture some proportion
-    of the overall absolute eigenvalue distribution
+    Retain as many components as you need to capture `pct_keep` proportion
+    of the overall value
     """
 
     if pct_keep > 1 or pct_keep <= 0:
@@ -51,9 +48,11 @@ def retain_top_pct(vals, pct_keep):
 
 def retain_kaiser(vals, data_dim):
     """
-    Use Kaiser's criterion to igure out
-    which components to retain based on their
-    associated eigenvalues in vals and the data dimension, data_dim
+    Use Kaiser's criterion for retention.
+
+    Normally, this is 'keep anything with more than (1/dim)% of total variance'
+    but we don't always know how many dimensions there are because eigenvalues
+    of 0 get cropped out. So we have you enter the dimensionality yourself.
     """
 
     if data_dim is None or data_dim < len(vals):
