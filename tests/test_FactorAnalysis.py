@@ -10,161 +10,80 @@ from fa_kit import FactorAnalysis
 from fa_kit.factor_analysis import DimensionMismatch, NonSquareMatrix
 
 
+TEST_DIM = 100
+
+A_SAMPLE = np.random.randn(5000, TEST_DIM)
+
+A_SQ = np.eye(TEST_DIM)
+B_SQ = np.eye(TEST_DIM + 1)
+
+A_NONSQ = np.ones((TEST_DIM + 1, TEST_DIM))
+B_NONSQ = np.ones((TEST_DIM + 1, TEST_DIM))
+
+
 #
 # Testing input validation
 #
 
+def test_nonsquare_covar():
+    """Test that there's an exception if covar input is not square"""
+
+    with pytest.raises(NonSquareMatrix):
+        FactorAnalysis.load_data_cov(A_NONSQ)
 
 
-def test_LabelMatch():
+def test_nonsquare_noise():
+    """Test that there's an exception if noise covar input is not square"""
 
-    a_sample = np.random.randn(100,3)
-
-    with pytest.raises(ValueError):
-        fan = FactorAnalysis.load_data_samples(a_sample, labels=[0,1])
-
-
-
-def test_AssocMatch():
-
-    num_feat = 3
-    a_sample = np.random.randn(100, num_feat)
-    a_sample -= a_sample.min() - 1
-
-    for m in product([True, False], repeat=2):
-        fan = FactorAnalysis.load_data_samples(a_sample, preproc_demean=m[0], preproc_scale=m[1])
-        assert fan.params_data['data_covar'].shape[0] == fan.params_data['data_covar'].shape[1]
-        assert fan.params_data['data_covar'].shape[0] == num_feat
+    fan = FactorAnalysis.load_data_cov(A_SQ)
+    with pytest.raises(NonSquareMatrix):
+        fan.add_noise_cov(B_NONSQ)
 
 
-def test_DimensionMismatch():
-
-    a_sq = np.eye(3)
-    b_sq = np.eye(4)
+def test_dimension_mismatch():
+    """Test that there's an exception if covar and noise matrices are mismatched"""
 
     with pytest.raises(DimensionMismatch):
-        fan = FactorAnalysis.load_data_cov(a_sq)
-        fan.add_noise_cov(b_sq)
+        fan = FactorAnalysis.load_data_cov(A_SQ)
+        fan.add_noise_cov(B_SQ)
 
 
-def test_NonSquareCovar():
+def test_label_match():
+    """Throw an error is not the right number of labels"""
 
-    a_nonsq = np.ones((4,3))
-
-    with pytest.raises(NonSquareMatrix):
-        fan = FactorAnalysis.load_data_cov(a_nonsq)
-
-
-def test_NonSquareNoise():
-
-    a_sq = np.eye(3)
-    b_nonsq = np.ones((4, 3))
-
-    fan = FactorAnalysis.load_data_cov(a_sq)
-    with pytest.raises(NonSquareMatrix):
-        fan.add_noise_cov(b_nonsq)
-
-#
-# Testing extraction
-#
-
-TEST_DIM = 100
-
-def test_extraction_covar():
-
-    a_sq = np.eye(TEST_DIM)
-    fan = FactorAnalysis.load_data_cov(a_sq)
-    fan.extract_components()
-
-    assert np.allclose(
-        np.ones(TEST_DIM) / TEST_DIM,
-        fan.props_raw
-    )
-
-def test_extraction_covar_and_noise():
-
-    a_sq = np.eye(TEST_DIM)
-    fan = FactorAnalysis.load_data_cov(a_sq)
-    fan.add_noise_cov(a_sq)
-    fan.extract_components()
-
-    assert np.allclose(
-        np.ones(TEST_DIM) / TEST_DIM,
-        fan.props_raw
-    )
+    with pytest.raises(ValueError):
+        FactorAnalysis.load_data_samples(A_SAMPLE, labels=[0, 1])
 
 
-def test_extraction_data():
+def test_assoc_match():
+    """Test that output is a square matrix after inputting per-sample data"""
 
-    a_sq = np.eye(TEST_DIM)
-    a_data = np.concatenate([a_sq]*4, axis=0)
+    for preproc_args in product([True, False], repeat=2):
 
-    fan = FactorAnalysis.load_data_samples(
-        a_data,
-        preproc_demean=False,
-        preproc_scale=True)
-    fan.extract_components()
+        fan = FactorAnalysis.load_data_samples(
+            A_SAMPLE,
+            preproc_demean=preproc_args[0],
+            preproc_scale=preproc_args[1])
 
-    assert np.allclose(
-        np.ones(TEST_DIM) / TEST_DIM,
-        fan.props_raw
-    )
-
-
-#
-# Testing number to retain calls
-#
-
-@pytest.fixture
-def random_fa():
-    a_data = np.random.randn(10000, TEST_DIM)
-
-    # adding correltions between vars by superimposing
-    # the same pattern of random noise over different
-    # variable ranges
-
-    bin_width = 15
-    step_size = 10
-    for idx_start in range(0, TEST_DIM, step_size):
-        new_noise = 0.2 * np.random.randn(10000, 1)
-        a_data[:, idx_start:(idx_start+bin_width)] += new_noise
-
-    a_cov = a_data.T.dot(a_data)
-
-    fan = FactorAnalysis.load_data_cov(a_cov)
-    fan.extract_components()
-
-    return fan
-
-
-def test_null_retain(random_fa):
-    with pytest.raises(Exception):
-        random_fa.find_comps_to_retain(method='null')
-
-
-def test_topn_retain(random_fa, top_n=7):
-
-    random_fa.find_comps_to_retain(method='top_n', num_keep=top_n)
-
-    assert all(random_fa.comps['retain_idx'] == list(range(top_n)))
+        assert fan.params_data['data_covar'].shape[0] == fan.params_data['data_covar'].shape[1]
+        assert fan.params_data['data_covar'].shape[0] == TEST_DIM
 
 
 #
 # Testing getting component scores
 #
 
+def test_get_scores():
+    """Test getting component scores"""
 
-def test_null_retain(random_fa):
-
-    num_keep = 5
-
-    random_fa.find_comps_to_retain(
-        method='top_n', num_keep=num_keep)
-    
-    random_fa.reextract_using_paf()
-
+    num_comps_to_keep = 5
     obs_data = np.random.randn(500, TEST_DIM)
-    scores = random_fa.get_component_scores(obs_data)
 
+    fan = FactorAnalysis.load_data_cov(A_SQ)
+    fan.extract_components()
+    fan.find_comps_to_retain(method='top_n', num_keep=num_comps_to_keep)
+    fan.reextract_using_paf()
 
-    assert scores.shape == (500, num_keep)
+    scores = fan.get_component_scores(obs_data)
+
+    assert scores.shape == (500, num_comps_to_keep)

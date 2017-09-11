@@ -1,5 +1,7 @@
-"""
-The FactorAnalysis object that does most of the work
+"""Module contains that FactorAnalysis object that coordinates an entire
+analysis through a series of in-place data operations.
+
+Typical workflows are illustrated by the notebooks in the `./examples` folder
 """
 
 import numpy as np
@@ -15,9 +17,7 @@ from fa_kit.broken_stick import BrokenStick
 #
 
 class NonSquareMatrix(ValueError):
-    """
-    Exception raised for non-square matrices
-    """
+    """Exception raised for non-square matrices"""
 
     def __init__(self, **kwargs):
 
@@ -36,9 +36,7 @@ class NonSquareMatrix(ValueError):
 
 
 class DimensionMismatch(ValueError):
-    """
-    Exception raised for mismatched dimensions
-    """
+    """Exception raised for mismatched dimensions"""
 
     def __init__(self, match_dim=1, **kwargs):
 
@@ -60,17 +58,23 @@ class DimensionMismatch(ValueError):
 # Utility functions
 #
 
-def _panda_to_numpy(df_data, labels):
+def panda_to_numpy(df_data, labels):
+    """ Turn a dataframe into an array with a set of labels in a list"""
     df_data = df_data.select_dtypes(include=[np.number])
     if labels is not None:
-        print('overwriting input labels with column names')
+        print('Overwriting input labels with column names')
     labels = df_data.columns.tolist()
     np_data = df_data.as_matrix()
 
     return np_data, labels
 
 
-def _cleanup_labels(np_data, labels):
+def cleanup_labels(np_data, labels):
+    """
+    Make sure there's the right number of labels. Including making new ones
+    from scratch if there aren't any
+    """
+
     if labels is not None:
         if len(labels) != np_data.shape[1]:
             err_text = (
@@ -85,11 +89,9 @@ def _cleanup_labels(np_data, labels):
     return labels
 
 
+
 class FactorAnalysis(object):
-    """
-    Base class for objects extract components
-    from data
-    """
+    """Base class for FactorAnalysis object"""
 
     def __init__(self):
 
@@ -111,10 +113,8 @@ class FactorAnalysis(object):
         self.props_raw = None
 
 
-    def load_data(self, data, is_cov=False):
-        """
-        load data into factor analysis object
-        """
+    def _load_data(self, data, is_cov=False):
+        """Function that loads data into factor analysis object"""
 
         if not isinstance(data, np.ndarray):
             raise TypeError((
@@ -151,28 +151,33 @@ class FactorAnalysis(object):
 
         self.params_data['data_covar'] = data
 
+
     @classmethod
     def load_data_samples(cls, input_data, labels=None, **kwargs):
         """
-        Load per-sample data as either an n_samples-by-n_feat numpy array
-        or a pandas dataframe with samples as rows and features as columns
-        
-        preproc_demean indicates whether to demean input before calculating
-        covar matrix. preproc_scale indicates whether to scale input before
-        calculating covar matrix. Turn on both to calculate a correlation. Turn
-        on jut demean for covariance.
+        Load an n_samples-by-n_dimensions numpy array or a pandas DataFrame
+        into the analysis, and create an n_dimensions-by-n_dimensions
+        covariance-esque matrix.
 
-        labels is a list of strings or ints used to label columns. If you pass
-        in a dataframe for input, that'll overwrite any labels you pass in
+        If you're using an array for input, specify labels for each column
+        with the list 'labels'. Labels will be inferred from pandas DataFrames.
+        
+        Use the boolean flag `preproc_demean` to indicate if you want to demean
+        each column before calculating an covariance
+        matrix (default: False)
+
+        Use the boolean flag `preproc_scale` to indicate if you want to force
+        each column to unit standard deviation before calculating the covariance
+        matrix (default: False)
         """
 
         fa_obj = cls()
 
         data = input_data.copy()
         if isinstance(data, pd.core.frame.DataFrame):
-            data, labels = _panda_to_numpy(data, labels)
+            data, labels = panda_to_numpy(data, labels)
 
-        labels = _cleanup_labels(data, labels)
+        labels = cleanup_labels(data, labels)
 
         new_params = {
             'preproc_demean': kwargs.get('preproc_demean', False),
@@ -183,27 +188,29 @@ class FactorAnalysis(object):
 
         fa_obj.params_data.update(new_params)
 
-        fa_obj.load_data(data, is_cov=False)
+        fa_obj._load_data(data, is_cov=False)
 
         return fa_obj
 
     @classmethod
     def load_data_cov(cls, input_data, labels=None, preproc_scale=False):
         """
-        Load data that is already a square association matrix, such as a 
-        covariance matrix.
+        Load an n_dimensions-by-n_dimensions numpy array that serves as the
+        covariance-esque matrix for analysis.
 
-        Input can be an n_samples-by-n_feat numpy array
+        Specify labels for each dimension with the list 'labels'.
 
-        labels is a list of strings or ints used to label columns. 
+        Use the boolean flag `preproc_scale` to indicate if you want to force
+        each dimension to unit standard deviation by setting the diagonal values
+        to 1 (default: False)
 
-        Note: pandas not allowed here.
+        Note: pandas DataFrames are not allowed here.
         """
 
         fa_obj = cls()
 
         data = input_data.copy()
-        labels = _cleanup_labels(data, labels)
+        labels = cleanup_labels(data, labels)
 
         new_params = {
             'preproc_demean': None,
@@ -214,19 +221,15 @@ class FactorAnalysis(object):
 
         fa_obj.params_data.update(new_params)
 
-        fa_obj.load_data(data, is_cov=True)
+        fa_obj._load_data(data, is_cov=True)
 
         return fa_obj
 
 
     def add_noise_cov(self, input_data):
         """
-        Load data that is already a square association matrix, such as a 
-        covariance matrix, that measures noise.
-
-        Input can be an n_samples-by-n_feat numpy array
-
-        labels is a list of strings or ints used to label columns. 
+        Load an n_dimensions-by-n_dimensions numpy array that describes the
+        distribution of noise.
 
         Note: pandas not allowed here.
         """
@@ -253,9 +256,7 @@ class FactorAnalysis(object):
 
 
     def extract_components(self):
-        """
-        decompose data into components
-        """
+        """Extract components"""
 
         self.comps['raw'], self.props_raw = fa.extraction.extract_components(
             self.params_data['data_covar'],
@@ -265,22 +266,23 @@ class FactorAnalysis(object):
 
     def find_comps_to_retain(self, method='broken_stick', **kwargs):
         """
-        Find indices of 'good' components
-        default behavior is method='broken_stick' which compares to
-        a fitted Broken Stick distribution
+        Examine the proportion of variance each component captures and
+        determine which to retain. Specificy one of the following methods to use
+        with the argument `method` (default `method` = 'broken_stick')
 
-        other options:
+        "top_n": retain the n largest components. requires that you also pass
+        the argument `num_keep` (default `num_keep` = 5)
 
-        top_n: retain the n largest components. requires that you
-        pass kwarg num_keep, otherwise n is set to 5
+        "top_pct": retain however many compenent you need to capture a certain
+        percentage of the overall distibution. Requires that you also pass the
+        argument `top_pct` (default `top_pct` = 0.9)
 
-        top_pca: retain however many compenent you need to contain
-        the top_pca proportion of all mass
+        "kaiser": use Kaiser's criterion to deremine which values are big enough
+        to retain based on the dimensionality of the input data
 
-        kaiser: retain the components with absolute values exceeding
-        1.0 / data dimensionality. Needs data_dim as input param.
-
-        other
+        "broken_stick": fit the observed distribution of proportions to a 
+        Broken Stick distribution and see where we have larger-than-expected
+        values
         """
 
 
@@ -293,7 +295,7 @@ class FactorAnalysis(object):
             self.params_retention['pct_keep'] = kwargs.get('pct_keep', .90)
         elif method == 'kaiser':
             self.params_retention['data_dim'] = kwargs.get(
-                'data_dim', len(self.props_raw,))
+                'data_dim', self.params_data['data_covar'].shape[1])
         elif method == 'broken_stick':
             fit_bs_on_log = self.params_data['noise_covar'] is None
             self.params_retention['fit_stick'] = BrokenStick(
@@ -306,7 +308,6 @@ class FactorAnalysis(object):
                 )
 
 
-        # Figure out number to retain
         if method == 'top_n':
             self.comps['retain_idx'] = fa.retention.retain_top_n(
                 self.props_raw, self.params_retention['num_keep']
@@ -332,9 +333,10 @@ class FactorAnalysis(object):
 
     def reextract_using_paf(self):
         """
-        Re-extract the components using "principle axis factoring"
-        to downwieght contributions from noise variables and get cleaner
-        factors
+        Re-extract the components using "Principle Axis Factoring"
+        to downwieght contributions from noisy variables.
+
+        Must be run after `extract_components` and `find_comps_to_retain`
         """
 
         self.comps['paf'] = fa.extraction.extract_using_paf(
@@ -347,19 +349,25 @@ class FactorAnalysis(object):
 
     def rotate_components(self, method='varimax'):
         """
-        rotate components
+        Rotate extracted components by on of these types as the argument
+        'method' (default `method` = 'varimax')
+
+          `varimax`, `quartimax` (numpy-based orthogonal rotations)
+          `varimax_tf`, `quartimax_tf` (tensorflow-based rotations)
+
+        Must be run after either `extract_components` or `reextract_using_paf`
         """
 
         self.params_rotation['method'] = method
 
         if method == 'varimax':
-            rot_obj = fa.rotation.VarimaxRotator_python()
+            rot_obj = fa.rotation.VarimaxRotatorPython()
         elif method == 'varimax_tf':
-            rot_obj = fa.rotation.VarimaxRotator_tf()
+            rot_obj = fa.rotation.VarimaxRotatorTf()
         elif method == 'quartimax':
-            rot_obj = fa.rotation.QuartimaxRotator_python()
+            rot_obj = fa.rotation.QuartimaxRotatorPython()
         elif method == 'quartimax_tf':
-            rot_obj = fa.rotation.QuartimaxRotator_tf()
+            rot_obj = fa.rotation.QuartimaxRotatorTf()
         else:
             raise Exception(
                 "Unknown method for rotation, {}".format(method)
@@ -372,10 +380,7 @@ class FactorAnalysis(object):
 
 
     def get_component_scores(self, input_data):
-        """
-        get component scores from a set of data samples.
-        """
-
+        """Project samples onto components to get component scores per sample"""
 
         # Apply preprocessing
         if self.params_data['preproc_demean']:
