@@ -114,32 +114,3 @@ def test_find_positive_values(shifted_bs):
 
     assert idx_found == idx_to_find
 
-
-def test_find_negative_values(shifted_bs):
-    """Test that we can find extreme negative values"""
-
-    idx_to_find_neg = list(range(TEST_DIM-1, TEST_DIM-3, -1))
-    idx_to_find = sorted(idx_to_find_neg)
-
-    targ_values = 1.0 * shifted_bs.values
-    targ_values[idx_to_find_neg] -= 10.0
-
-    idx_found = shifted_bs.find_where_target_exceeds(targ_values)
-
-    assert idx_found == idx_to_find
-
-
-def test_find_positve_and_negative_values(shifted_bs):
-    """Test that we can find extreme postive and negative values"""
-
-    idx_to_find_pos = list(range(2))
-    idx_to_find_neg = list(range(TEST_DIM-1, TEST_DIM-3, -1))
-    idx_to_find = sorted(idx_to_find_pos + idx_to_find_neg)
-
-    targ_values = 1.0 * shifted_bs.values
-    targ_values[idx_to_find_pos] += 10.0
-    targ_values[idx_to_find_neg] -= 10.0
-
-    idx_found = shifted_bs.find_where_target_exceeds(targ_values)
-
-    assert idx_found == idx_to_find

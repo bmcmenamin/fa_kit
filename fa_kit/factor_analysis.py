@@ -375,8 +375,12 @@ class FactorAnalysis(object):
 
         if self.comps['paf'] is not None:
             self.comps['rot'] = rot_obj.rotate(self.comps['paf'])
+        elif self.comps['raw'] is not None:
+            self.comps['rot'] = rot_obj.rotate(
+                self.comps['raw'][:, self.comps['retain_idx']]
+                )
         else:
-            self.comps['rot'] = rot_obj.rotate(self.comps['raw'])
+            print('You must extract components before rotations')
 
 
     def get_component_scores(self, input_data):

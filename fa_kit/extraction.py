@@ -3,7 +3,7 @@ from a covariance matrix.
 """
 
 import numpy as np
-import scipy as sp
+from scipy.linalg import eigh as sp_eigh
 
 import fa_kit.retention as retention
 
@@ -38,7 +38,7 @@ def extract_components(data_covar, noise_covar=None):
 
     You can also specify a second matrix `noise_covar` that contains
     information about how noise is distributed. If you do that, `props` will
-    be replaced by the log-SNR value which can be negative.
+    be replaced by the normalized SNR value.
     """
 
     if noise_covar is None:
@@ -53,17 +53,8 @@ def extract_components(data_covar, noise_covar=None):
         reg_noise = EIG_OPTS['noise_reg']*np.eye(noise_covar.shape[0])
         reg_noise += noise_covar
 
-        inv_noise = np.linalg.inv(reg_noise)
-
-        # Pre-multiply by the inverse nose matrix, which is equivalent to
-        # doing a generalized eigenvalue solution
-        props, comps = np.linalg.eigh(
-            inv_noise.dot(data_covar)
-            )
-
-        # Turn eigenvalues into log-SNR
-        base_snr = np.trace(data_covar) / np.trace(reg_noise)
-        props = np.log(props) + np.log(base_snr)
+        # Use generalized eigenvalue solution
+        props, comps = sp_eigh(a=data_covar, b=reg_noise)
 
     comps = np.real(comps)
     props = np.real(props)
@@ -74,21 +65,34 @@ def extract_components(data_covar, noise_covar=None):
     return comps, props
 
 
+def _modify_diag_with_comm(cov_mat, comm):
+    """Modify the diagonal of a covar matrix by communality"""
+
+    modified_cov_mat = np.copy(cov_mat)
+    np.fill_diagonal(
+        modified_cov_mat,
+        comm * np.diag(cov_mat)
+        )
+
+    return modified_cov_mat
+
+
 def _paf_step(comps, data_covar, noise_covar=None):
     """Re-extract components while downweighting by communality"""
 
     communality = np.sum(comps**2, axis=1)
 
     # Use communality to scale down the variance along the diagonal
-    modified_covar = np.copy(data_covar)
-    np.fill_diagonal(
-        modified_covar,
-        communality * np.diag(data_covar)
-        )
+    modified_covar = _modify_diag_with_comm(data_covar, communality)
+
+    if noise_covar is not None:
+        modified_noise_covar = _modify_diag_with_comm(noise_covar, communality)
+    else:
+        modified_noise_covar = None
 
     new_comps, new_props = extract_components(
         modified_covar,
-        noise_covar
+        modified_noise_covar
         )
 
     retain_idx = retention.retain_top_n(new_props, comps.shape[1])

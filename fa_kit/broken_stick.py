@@ -57,26 +57,26 @@ def fisher_info(data):
     return data_fi
 
 
-def fit_to_data(distro_values, target_data, weights=None, fit_on_log=True):
+def fit_to_data(distro_values, target_data, weights=None):
     """
     Scale and shift the values in `distro_values` to align with a
     set of observed data in the sequence `target_data`
 
-    If `fit_on_log` is True, the values in the BrokenStick object and
-    `target_data` will be log-transformed before fitting. This is useful
+    The values in the BrokenStick object and `target_data` will be
+    log-transformed before fitting. This is useful
     when aligning series that are strictly non-negative (e.g., eigenvalues
-    from P.S.D. matrices).
+    from P.S.D. matrices). In the case that they're not non-negative, we'll
+    shift them up so that they are
 
     The array `weights` will determine how much importance is placed on
     matching each particular point in the series.
     """
 
-    if fit_on_log:
-        targ_trans = np.log(target_data + 1)
-        dist_trans = np.log(distro_values + 1)
-    else:
-        targ_trans = target_data
-        dist_trans = distro_values
+    min_val = np.min([target_data.min(), distro_values.min()])
+    pad = 1.0 / len(target_data)
+
+    targ_trans = np.log(target_data - min_val + pad)
+    dist_trans = np.log(distro_values - min_val + pad)
 
     targ_wmean, targ_wsd = weighted_moments(targ_trans, weights)
     dist_wmean, dist_wsd = weighted_moments(dist_trans, weights)
@@ -86,7 +86,7 @@ def fit_to_data(distro_values, target_data, weights=None, fit_on_log=True):
 
     dist_trans_fit = scale*dist_trans + shift
 
-    dist_fit = np.exp(dist_trans_fit) - 1
+    dist_fit = np.exp(dist_trans_fit) + min_val - pad
 
     return dist_fit
 
@@ -105,12 +105,10 @@ class BrokenStick(object):
             self.values = calc_broken_stick(in_vals)
         else:
             self.values = calc_broken_stick(len(in_vals))
-
-            fit_on_log = kwargs.get('fit_on_log', True)
-            self.rescale_broken_stick(in_vals, fit_on_log=fit_on_log)
+            self.rescale_broken_stick(in_vals)
 
 
-    def rescale_broken_stick(self, target_data, fit_on_log=True):
+    def rescale_broken_stick(self, target_data):
         """
         Align values in the BrokenStick object with the provided target_data.
         Changes are made in-place
@@ -120,10 +118,6 @@ class BrokenStick(object):
         targ_sort_idx = np.argsort(-np.abs(target_data))
         targ_unsort_idx = np.argsort(targ_sort_idx)
 
-        # Determine how to (un)sort the BrokenStick values based on abs-mag
-        self_sort_idx = np.argsort(-np.abs(self.values))
-        self_unsort_idx = np.argsort(self_sort_idx)
-
         """
         Calculate the weights for alignment using the cumulative inverse
         Fisher information of the target values. This will make sure to
@@ -132,21 +126,19 @@ class BrokenStick(object):
         diverge from the observed values
         """
 
-        inv_fisher_info = fisher_info(
-            np.abs(target_data[targ_sort_idx])
-            ) ** -2.0
+        targ_pdf = np.abs(target_data[targ_sort_idx])
+        targ_pdf /= np.sum(targ_pdf)
 
+        inv_fisher_info = 1.0 / fisher_info(targ_pdf)
         weights = np.cumsum(inv_fisher_info)
-        weights -= weights.min()
 
         fit_values_sorted = fit_to_data(
-            np.abs(self.values[self_sort_idx]),
+            np.abs(self.values[targ_sort_idx]),
             np.abs(target_data[targ_sort_idx]),
-            weights,
-            fit_on_log=fit_on_log
+            weights
             )
 
-        fit_values = fit_values_sorted[self_unsort_idx] * np.sign(target_data)
+        fit_values = fit_values_sorted[targ_unsort_idx]
         self.values = fit_values
 
 
@@ -156,21 +148,12 @@ class BrokenStick(object):
         the absolute value of the BrokenStick values
         """
 
-        good_idx_pos = []
-        good_idx_neg = []
+        good_idx = []
 
         for idx in range(0, len(target_data)):
-            if self.values[idx] > 0 and  target_data[idx] > self.values[idx]:
-                good_idx_pos.append(idx)
+            if target_data[idx] > self.values[idx]:
+                good_idx.append(idx)
             else:
                 break
 
-        for idx in range(len(target_data) - 1, 0, -1):
-            if self.values[idx] < 0 and target_data[idx] < self.values[idx]:
-                good_idx_neg.append(idx)
-            else:
-                break
-
-        all_good_idx = sorted(good_idx_pos + good_idx_neg)
-
-        return all_good_idx
+        return good_idx

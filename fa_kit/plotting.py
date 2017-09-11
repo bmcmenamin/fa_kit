@@ -31,7 +31,7 @@ def graph_summary(fa_obj, num_eigs_to_plot=30):
             axes[p_num].plot(x_range, fa_obj.props_raw[:num_eigs_to_plot], '-ok')
             n = fa_obj.params_retention['num_keep']
             if n <= num_eigs_to_plot:
-                axes[p_num].plot([n, n], axes[p_num].get_ylim(), '--k')
+                axes[p_num].plot([n + 0.5, n + 0.5], axes[p_num].get_ylim(), '--k')
             axes[p_num].set_title(
                 'Normed Eigenvalues with top {} cutoff'.format(n))
 
