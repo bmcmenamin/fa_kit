@@ -1,14 +1,24 @@
-"""
-Functions for factor rotation
+"""Module contains objects used for factor rotation
+
+Currently contains these rotations:
+- Varimax (numpy backend)
+- Quartimax (numpy backend)
+- Pseudo-Varimax (Tensorflow backend)
+- Pseudo-Quartimax (Tensorflow backend)
+
+The reason that some are 'pseudo' is that the tensorflow implementation is set
+up in a way that optimizes the same criterion as a traditional varimax but does
+not guarantee that the rotated components are strictly orthogonal.
+
+The Tensorflow rotation objects make it easy to develop brand-new types of
+rotations that optimize other criteria, such as sparseness/L1-regularization.
 """
 
 import numpy as np
 import tensorflow as tf
 
 class Rotator(object):
-    """
-    Base class for rotation objects
-    """
+    """Base class for rotation objects"""
 
     ITER_MAX = 100
 
@@ -20,9 +30,7 @@ class Rotator(object):
 
 
     def rotate(self, comps_in):
-        """
-        Apply a rotation
-        """
+        """Apply a rotation"""
         raise NotImplementedError
 
     def flip_to_positive(self):
@@ -46,9 +54,7 @@ class Rotator(object):
 
 
 class OrthoRotator(Rotator):
-    """
-    Class that does orthogonal rotations
-    """
+    """Class that does orthogonal rotations"""
 
     def __init__(self, gamma):
 
@@ -60,7 +66,8 @@ class OrthoRotator(Rotator):
 
         """
         Apply iterative orthogonal rotation
-        based on: https://github.com/rossfadely/consomme/blob/master/consomme/rotate_factor.py
+        based on:
+            https://github.com/rossfadely/consomme/blob/master/consomme/rotate_factor.py
         """
 
         self.comps_orig = comps_in
@@ -101,31 +108,26 @@ class OrthoRotator(Rotator):
         return self.comps_rot
 
 
-class VarimaxRotator_python(OrthoRotator):
-    """
-    Class for python implementation of varimax rotation
-    """
+class VarimaxRotatorPython(OrthoRotator):
+    """Python implementation of varimax rotation"""
 
     def __init__(self):
         gamma = 1.0
-        super(VarimaxRotator_python, self).__init__(gamma)
+        super(VarimaxRotatorPython, self).__init__(gamma)
 
-class QuartimaxRotator_python(OrthoRotator):
-    """
-    Class for python implementation of quartimax rotation
-    """
+
+class QuartimaxRotatorPython(OrthoRotator):
+    """Python implementation of quartimax rotation"""
 
     def __init__(self):
         gamma = 0.0
-        super(QuartimaxRotator_python, self).__init__(gamma)
+        super(QuartimaxRotatorPython, self).__init__(gamma)
 
 
 
 
 class TfRotator(Rotator):
-    """
-    Class that does rotations using tensorflow
-    """
+    """Class that does rotations using TensorFlow"""
 
     def __init__(self):
         super(TfRotator, self).__init__()
@@ -134,8 +136,10 @@ class TfRotator(Rotator):
         self.tf_layers = {}
         self.agg_axis = None
 
+
     @staticmethod
     def _new_var(initial_value):
+        """Add new variable to model"""
 
         new_shape = tf.TensorShape(initial_value.shape)
 
@@ -148,6 +152,7 @@ class TfRotator(Rotator):
 
     @staticmethod
     def _mse(mat1, mat2):
+        """Make variable that is total MSE between two TensorFlow matrices"""
 
         mse = tf.reduce_mean(
             tf.squared_difference(
@@ -162,6 +167,7 @@ class TfRotator(Rotator):
 
     @staticmethod
     def _agg_var(comps, agg_axis):
+        """Make variable of varaince in squared component scores on one axis"""
 
         agg_var = tf.reduce_mean(
             tf.nn.moments(
@@ -178,6 +184,7 @@ class TfRotator(Rotator):
 
 
     def _build_graph(self):
+        """Build graph of for varimax/quartimax rotation"""
 
         self.graph = tf.Graph()
 
@@ -231,15 +238,14 @@ class TfRotator(Rotator):
                     )
 
     def rotate(self, comps_in):
+        """Given a set of components, build a graph and do iterative rotation"""
 
         self.comps_orig = comps_in
         self._build_graph()
 
         run_kwargs = {
-            'feed_dict': {
-                self.tf_layers['input']: self.comps_orig
-                }
-        }
+            'feed_dict': {self.tf_layers['input']: self.comps_orig}
+            }
         
         with tf.Session(graph=self.graph) as sess:
 
@@ -264,23 +270,18 @@ class TfRotator(Rotator):
         return self.comps_rot
 
 
-class VarimaxRotator_tf(TfRotator):
-    """
-    class for pseudo-varimax rotation
-    """
+class VarimaxRotatorTf(TfRotator):
+    """Tensorflow implementation of pseudo-varimax rotation"""
 
     def __init__(self):
-        super(VarimaxRotator_tf, self).__init__()
+        super(VarimaxRotatorTf, self).__init__()
         self.agg_axis = 0
 
 
-
-class QuartimaxRotator_tf(TfRotator):
-    """
-    class for pseudo-quartimax rotation
-    """
+class QuartimaxRotatorTf(TfRotator):
+    """Tensorflow implementation of pseudo-quartimax rotation"""
 
     def __init__(self):
-        super(QuartimaxRotator_tf, self).__init__()
+        super(QuartimaxRotatorTf, self).__init__()
         self.agg_axis = 1
 

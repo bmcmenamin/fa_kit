@@ -12,12 +12,10 @@ TEST_DIM = 100
 
 
 def test_varimax_python():
-    """
-    Test varimax rotation python implementation
-    """
+    """Test varimax rotation python implementation"""
 
     in_comps = np.eye(TEST_DIM)
-    rot = rotation.VarimaxRotator_python()
+    rot = rotation.VarimaxRotatorPython()
     rot_comps = rot.rotate(in_comps)
 
     assert np.array_equal(
@@ -25,13 +23,12 @@ def test_varimax_python():
         np.eye(TEST_DIM)
         )
 
+
 def test_quartimax_python():
-    """
-    Test quartimax rotation python implementation
-    """
+    """Test quartimax rotation python implementation"""
 
     in_comps = np.eye(TEST_DIM)
-    rot = rotation.QuartimaxRotator_python()
+    rot = rotation.QuartimaxRotatorPython()
     rot_comps = rot.rotate(in_comps)
 
     assert np.array_equal(
@@ -41,12 +38,10 @@ def test_quartimax_python():
 
 
 def test_varimax_tf():
-    """
-    Test varimax rotation TF implementation
-    """
+    """Test varimax rotation TF implementation"""
 
     in_comps = np.eye(TEST_DIM)
-    rot = rotation.VarimaxRotator_tf()
+    rot = rotation.VarimaxRotatorTf()
     rot_comps = rot.rotate(in_comps)
 
     assert np.array_equal(
@@ -55,12 +50,10 @@ def test_varimax_tf():
         )
 
 def test_quartimax_tf():
-    """
-    Test quartimax rotation TF implementation
-    """
+    """Test quartimax rotation TF implementation"""
 
     in_comps = np.eye(TEST_DIM)
-    rot = rotation.QuartimaxRotator_tf()
+    rot = rotation.QuartimaxRotatorTf()
     rot_comps = rot.rotate(in_comps)
 
     assert np.array_equal(
