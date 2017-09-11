@@ -11,12 +11,4 @@ I've re-written various factor analysis tools for my own use several times over 
 
 
 Up next to-do:
-* Tensorflow Extraction/PAF
-* Plotting functions
-    * Scree plots
-    * Factor outputs
-* Labelling for dimensions
-    * label-sorting options
-* Pandas input/output
 * Demo notebooks
-* Clean docstrings and readmes
