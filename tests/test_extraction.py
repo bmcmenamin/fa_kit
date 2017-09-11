@@ -1,5 +1,5 @@
 """
-unit tests for factor extraction module
+Unit tests for factor extraction module
 """
 
 import pytest
