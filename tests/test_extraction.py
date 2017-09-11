@@ -1,5 +1,5 @@
 """
-unit tests for factor extraction module
+Unit tests for factor extraction module
 """
 
 import pytest
@@ -35,15 +35,11 @@ def test_is_sorted():
     assert not is_sorted(list_descend, ascending=True)
 
 
-
-
 #
 # Testing input validation
 #
 
 TEST_DIM = 100
-
-
 
 def test_extraction_covar():
     """Test extraction of components from covar"""
