@@ -1,2 +1,9 @@
 *.pyc
 .cache
+
+setup.py
+build/
+dist/
+fa_kit.egg-info/
+
+examples/.ipynb_checkpoints/
