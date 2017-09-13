@@ -1,7 +1,7 @@
 # fa_kit
 Factor Analysis Kit version 0.1.1
 
-I've re-written various factor analysis tools for my own use several times over the years, so I'm trying to come up with a single factor analysis package that does everything I want.
+I've re-written various factor analysis tools for my own use several times over the years, so I'm trying to come up with a single factor analysis package that does everything I want. See also, [this](https://bmcmenamin.github.io/2017/09/12/releasing-fa-kit.html).
 
 This should be compatible with Python 2 and 3.
 
