@@ -1,5 +1,5 @@
 # fa_kit
-Factor Analysis Kit version 0.1.1
+Factor Analysis Kit version 0.1.2
 
 I've re-written various factor analysis tools for my own use several times over the years, so I'm trying to come up with a single factor analysis package that does everything I want.
 
