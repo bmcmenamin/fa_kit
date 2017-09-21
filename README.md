@@ -12,3 +12,5 @@ Directory layout:
 
 # Installation
 You can install it using pip like this: `pip install fa_kit`
+
+If you want to use the tensorflow rotations, you'll also need to install tensorflow (e.g.,`pip install tensorflow`)
