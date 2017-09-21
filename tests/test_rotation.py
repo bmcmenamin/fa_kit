@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 
 from fa_kit import rotation
+from fa_kit import rotation_tf
 
 
 TEST_DIM = 100
@@ -41,7 +42,7 @@ def test_varimax_tf():
     """Test varimax rotation TF implementation"""
 
     in_comps = np.eye(TEST_DIM)
-    rot = rotation.VarimaxRotatorTf()
+    rot = rotation_tf.VarimaxRotatorTf()
     rot_comps = rot.rotate(in_comps)
 
     assert np.array_equal(
@@ -53,7 +54,7 @@ def test_quartimax_tf():
     """Test quartimax rotation TF implementation"""
 
     in_comps = np.eye(TEST_DIM)
-    rot = rotation.QuartimaxRotatorTf()
+    rot = rotation_tf.QuartimaxRotatorTf()
     rot_comps = rot.rotate(in_comps)
 
     assert np.array_equal(

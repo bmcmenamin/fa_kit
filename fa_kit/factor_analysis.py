@@ -363,11 +363,11 @@ class FactorAnalysis(object):
         if method == 'varimax':
             rot_obj = fa.rotation.VarimaxRotatorPython()
         elif method == 'varimax_tf':
-            rot_obj = fa.rotation.VarimaxRotatorTf()
+            rot_obj = fa.rotation_tf.VarimaxRotatorTf()
         elif method == 'quartimax':
             rot_obj = fa.rotation.QuartimaxRotatorPython()
         elif method == 'quartimax_tf':
-            rot_obj = fa.rotation.QuartimaxRotatorTf()
+            rot_obj = fa.rotation_tf.QuartimaxRotatorTf()
         else:
             raise Exception(
                 "Unknown method for rotation, {}".format(method)
